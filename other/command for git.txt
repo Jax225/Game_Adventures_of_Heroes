@@ -21,3 +21,19 @@ git config --global user.name "Lashko Stanislav Vasilievich"
    9 git pull origin master
   10 git ls-remote --heads origin
   11 git pull origin main
+_______________________________________
+0. Перейти в папку *Game_Adventures_of_Heroes/
+1. проверить находимся ли мы в ветке main
+2. обновить gitignore
+	.venv/
+	.idea/
+
+  65 git add .
+  66 git commit -m "New file"
+  67 git push
+  68 git add .
+  69 git commit -m "New file"
+  70 git push
+  71 git add .
+  72 git commit -m "update readme"
+  73 git push
