@@ -1,0 +1,23 @@
+{
+    "version": 3,
+    "name": "\u0432\u0435\u0440\u0441\u0438\u044f3",
+    "level": 1,
+    "health_points": 100,
+    "attack_power": 10,
+    "defence": 5,
+    "experience": 0,
+    "exp_base": 100,
+    "count_kill": 0,
+    "location": "\u0425\u0440\u0430\u043c",
+    "class_character": "Human",
+    "inventory": [],
+    "equipment": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    ],
+    "now_time": 1745841132
+}₽

@@ -1,0 +1,22 @@
+{
+    "name": "\u041a\u043e\u0442\u043e\u043a",
+    "level": 5,
+    "health_points": 470,
+    "attack_power": 50,
+    "defence": 25,
+    "experience": "test",
+    "exp_base": 1600,
+    "count_kill": 1.3,
+    "location": null,
+    "class_character": "Human",
+    "inventory": [
+        1,
+        1,
+        2,
+        1,
+        1,
+        1,
+        3
+    ],
+    "now_time": 1719470053.9660268
+}

@@ -1,0 +1,67 @@
+{
+    "version": 1,
+    "name": "\u0433\u0435\u0440\u043e\u0439",
+    "level": 2,
+    "health_points": 200,
+    "attack_power": 20,
+    "defence": 10,
+    "experience": 200,
+    "exp_base": 200,
+    "count_kill": 1,
+    "location": "\u0425\u0440\u0430\u043c",
+    "class_character": "Human",
+    "inventory": [],
+    "equipment": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    ],
+    "now_time": 1745830209
+}₽{
+    "version": 1,
+    "name": "\u0433\u0435\u0440\u043e\u0439",
+    "level": 2,
+    "health_points": 200,
+    "attack_power": 20,
+    "defence": 10,
+    "experience": 200,
+    "exp_base": 200,
+    "count_kill": 1,
+    "location": "\u0413\u043e\u0440\u043e\u0434",
+    "class_character": "Human",
+    "inventory": [],
+    "equipment": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    ],
+    "now_time": 1745830792
+}₽{
+    "version": 1,
+    "name": "\u0413\u043e\u0440\u043e\u0434",
+    "level": 2,
+    "health_points": 200,
+    "attack_power": 20,
+    "defence": 10,
+    "experience": 0,
+    "exp_base": 200,
+    "count_kill": 1,
+    "location": "\u0413\u043e\u0440\u043e\u0434",
+    "class_character": "Human",
+    "inventory": [],
+    "equipment": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    ],
+    "now_time": 1745523119
+}

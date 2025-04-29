@@ -1,0 +1,23 @@
+# внести изменения в файлы и папки
+
+git add . 
+git commit -m "обновление: локации"
+git push -u origin main 
+
+git config --global user.email " s-lashko@ya.ru "
+git config --global user.name "Lashko Stanislav Vasilievich"
+
+
+скачивание с GitHub
+
+   1 git branch -a
+   2 cd .\Game_Adventures_of_Heroes\
+   3 git branch -a
+   4 git branch --set-upstream-to=origin/main main
+   5 git pull origin master
+   6 git remote -v
+   7 git remote add origin https://github.com/Jax225/Game_Adventures_of_Heroes
+   8 git remote -v
+   9 git pull origin master
+  10 git ls-remote --heads origin
+  11 git pull origin main

@@ -1,0 +1,45 @@
+{
+    "version": 1,
+    "name": "акара",
+    "level": 2,
+    "health_points": 186,
+    "attack_power": 20,
+    "defence": 10,
+    "experience": 200,
+    "exp_base": 200,
+    "count_kill": 2,
+    "location": "start_location",
+    "class_character": "Human",
+    "inventory": [],
+    "equipment": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    ],
+    "now_time": 1719591275
+}₽{
+    "version": 1,
+    "name": "акара",
+    "level": 4,
+    "health_points": 400,
+    "attack_power": 40,
+    "defence": 20,
+    "experience": 0,
+    "exp_base": 800,
+    "count_kill": 7,
+    "location": "start_location",
+    "class_character": "Human",
+    "inventory": [],
+    "equipment": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    ],
+    "now_time": 1729540355
+}₽
