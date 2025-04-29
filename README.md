@@ -15,7 +15,7 @@ Adventures of Heroes - это игра, разработанная одним э
 Только для Windows.
 
 ## Установка
-1. Скачайте файл `adventures_of_heroes_v_0.3.2.1_alpha.exe`.
+1. Скачайте файл `adventures_of_heroes_v_0.3.2.1_alpha.exe` из раздела **Releases**
 2. Запустите файл, чтобы начать.
 
 ## Лицензия
