@@ -264,12 +264,11 @@ class Character:
         return str(self.location) if isinstance(self.location, Location) else "Неизвестно"
 
 class Location:
-    def __init__(self, name: str, description: str, danger_level: int, zone_type: str, id_loc: int) -> None:
+    def __init__(self, name: str, description: str, danger_level: int, zone_type: str) -> None:
         self.name = name
         self.description = description
         self.danger_level = danger_level
         self.zone_type = zone_type  # Новый параметр для типа зоны
-        self.id_loc = id_loc
 
     def __str__(self):
         return f"{self.name}: {self.description} (Уровень опасности: {self.danger_level}, Тип зоны: {self.zone_type})"
@@ -327,11 +326,10 @@ item_database = [
 ]
 #База данных локаций
 location_database = [
-    Location(name="Город", description="Место, полное жизни и возможностей.", danger_level=1, zone_type="peaceful", id_loc="1"),
-    Location(name="Зачарованный лес", description="Лес, полный магии и тайн.", danger_level=3, zone_type="combat", id_loc="2"),
-    Location(name="Безлюдная пустыня", description="Широкие песчаные дюны и отсутствие жизни.", danger_level=4, zone_type="combat", id_loc="3"),
-    Location(name="Храм", description="Древний храм, хранящий множество секретов.", danger_level=2, zone_type="combat", id_loc="4"),
-
+    Location(name="Зачарованный лес", description="Лес, полный магии и тайн.", danger_level=3, zone_type="combat"),
+    Location(name="Безлюдная пустыня", description="Широкие песчаные дюны и отсутствие жизни.", danger_level=4, zone_type="combat"),
+    Location(name="Храм", description="Древний храм, хранящий множество секретов.", danger_level=2, zone_type="combat"),
+    Location(name="Город", description="Место, полное жизни и возможностей.", danger_level=1, zone_type="peaceful"),
 ]
 
 # Создаем экземпляр локации "Храм"
@@ -359,24 +357,12 @@ class Mob(Character):
     def __init__(self, *, name: str, level: int, item_database: list) -> None:
         super().__init__(name, level)
         self.inventory = generate_inventory(item_database)
-
 #class Mob_mini(Mob)
 #Отдельные функции
 
-def spawn_mob(location: Location):
-    if location.name == "Храм":
-        level = 1
-        name = list_name_orcs[0]  # Имя орка из храма
-    elif location.name == "Зачарованный лес":
-        level = random.randint(3, 6)
-        name = list_name_orcs[2]  # Имя орка из зачарованного леса
-    elif location.name == "Безлюдная пустыня":
-        level = random.randint(8, 12)
-        name = list_name_orcs[1]  # Имя орка из пустыни
-    else:
-        return None  # Если локация не распознана
-
-    new_spawn_mob = Mob(name=name, level=level, item_database=item_database)
+def spawn_mob():
+    name = list_name_orcs[0] # name = list_name_orcs[int(random.uniform(0, len(list_name_orcs)))]
+    new_spawn_mob = Mob(name=name, level=1, item_database=item_database)
     return new_spawn_mob
 
 
@@ -389,14 +375,11 @@ def fight(*, charcter1: Character, charcter2: Character):
 
 
 def fight_wiht_mob():
-    new_mob = spawn_mob(hero_user.location)  # Передаем текущую локацию героя
-    if new_mob:
-        print(f"Начинается бой с '{new_mob.name}', {new_mob.level} уровня\n"
-              f"Количество здоровья '{new_mob.name}' = {new_mob.health_points}"
-              )
-        fight(charcter1=hero_user, charcter2=new_mob)
-    else:
-        console.print("[red]Не удалось создать монстра.[/red]")
+    new_mob = spawn_mob()
+    print(f"Начинается бой с '{new_mob.name}', {new_mob.level} уровня\n"
+          f"Количство здоровья '{new_mob.name}' = {new_mob.health_points}"
+          )
+    fight(charcter1=hero_user, charcter2=new_mob)
 
 
 def generate_inventory(item_database: list, max_item=5):
