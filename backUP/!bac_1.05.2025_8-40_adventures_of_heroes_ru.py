@@ -457,16 +457,15 @@ def generate_inventory(item_database: list, allowed_item_ids: list, max_item=5, 
 def trade_with_merchant(character: Character, merchant: Merchant):
     while True:
         merchant.show_items()
-        action = input("Введите 'купить' или 'к' для покупки\n"
-                       "Введите 'продать' или 'п' для продажи\n"
-                       "Для выхода 'выйти' или 'в': ").strip().lower()
-        if action in ["купить", "к"]:
+        action = input("Введите 'КУПИТЬ' для покупки, 'ПРОДАТЬ' для продажи или 'ВЫЙТИ' для выхода: ").strip().lower()
+
+        if action == "купить":
             item_index = int(input("Введите номер товара для покупки: ")) - 1
             merchant.buy_item(character, item_index)
-        elif action in ["продать", "п"]:
+        elif action == "продать":
             item_index = int(input("Введите номер предмета для продажи: ")) - 1
             merchant.sell_item(character, item_index)
-        elif action in ["выйти", "в"]:
+        elif action == "выйти":
             break
         else:
             console.print("[red]Неверная команда.[/red]")

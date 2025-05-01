@@ -252,6 +252,37 @@ class Character:
 
     def get_location(self) -> str:
         return str(self.location) if isinstance(self.location, Location) else "Неизвестно"
+# Класс торговец
+class Merchant:
+    def __init__(self, name: str, items: list) -> None:
+        self.name = name
+        self.items = items  # Список предметов, которые продает торговец
+
+    def show_items(self):
+        console.print(f"{self.name} предлагает следующие товары:")
+        for index, item in enumerate(self.items):
+            console.print(f"{index + 1}. {item.name} - Цена: {item.stock_price} монет")
+
+    def buy_item(self, character: Character, item_index: int):
+        if 0 <= item_index < len(self.items):
+            item = self.items[item_index]
+            if character.money >= item.stock_price:
+                character.money -= item.stock_price
+                character.add_item(item)
+                console.print(f"{character.name} купил {item.name} у {self.name}.")
+            else:
+                console.print("[red]Недостаточно денег![/red]")
+        else:
+            console.print("[red]Неверный индекс товара.[/red]")
+
+    def sell_item(self, character: Character, item_index: int):
+        if 0 <= item_index < len(character.inventory):
+            item = character.inventory[item_index]
+            character.money += item.stock_price // 2  # Продаем за половину цены
+            character.inventory.remove(item)
+            console.print(f"{character.name} продал {item.name} {self.name}.")
+        else:
+            console.print("[red]Неверный индекс товара.[/red]")
 
 class Location:
     def __init__(self, name: str, description: str, danger_level: int, zone_type: str, id_loc: int) -> None:
@@ -422,6 +453,25 @@ def generate_inventory(item_database: list, allowed_item_ids: list, max_item=5, 
 
     return inventory
 
+# Метод торговли
+def trade_with_merchant(character: Character, merchant: Merchant):
+    while True:
+        merchant.show_items()
+        action = input("Введите 'купить' или 'к' для покупки\n"
+                       "Введите 'продать' или 'п' для продажи\n"
+                       "Для выхода 'выйти' или 'в': ").strip().lower()
+        if action in ["купить", "к"]:
+            item_index = int(input("Введите номер товара для покупки: ")) - 1
+            merchant.buy_item(character, item_index)
+        elif action in ["продать", "п"]:
+            item_index = int(input("Введите номер предмета для продажи: ")) - 1
+            merchant.sell_item(character, item_index)
+        elif action in ["выйти", "в"]:
+            break
+        else:
+            console.print("[red]Неверная команда.[/red]")
+
+#Функция перемещения персонажа
 def move_character():
     console.print("Выберите локацию для перемещения:")
     for index, loc in enumerate(location_database):
@@ -671,6 +721,12 @@ def get_player_command():
         f"'ПЕРЕМЕЩЕНИЕ' или 'П' для перемещения \n"
     )
 
+    # Добавляем опцию торговли, если мирной зоне
+    if hero_user.location.zone_type == "peaceful":
+        command_options += (
+            f"'ТОРГОВЕЦ' или 'Т' для торговли \n"
+        )
+
     # Добавляем опцию боя, если зона боевое
     if hero_user.location.zone_type == "combat":
         command_options += (
@@ -689,6 +745,12 @@ def game() -> None:
             fight_wiht_mob()  # Вызываем бой только если зона боевое
         elif command in ["бой", "б"] and hero_user.location.zone_type == "peaceful":
             console.print("[red]Вы не можете вступить в бой в мирной зоне![/red]")
+
+        elif command in ["торговец", "т"] and hero_user.location.zone_type == "peaceful":
+            # Создание торговца
+            merchant_items = [item_database[0], item_database[1], item_database[3]]  # Пример товаров
+            merchant = Merchant(name="Торговец", items=merchant_items)
+            trade_with_merchant(hero_user, merchant)  # Вызов торговли
 
         elif command in ["перемещение", "п"]:
             move_character()  # Вызов функции перемещения
