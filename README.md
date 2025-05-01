@@ -9,14 +9,14 @@ Adventures of Heroes - это игра, разработанная одним э
 Чтобы запустить игру, посмотрите раздел Установка.
 
 ## Текущая версия
-**Версия:** 0.3.2.1
+**Версия:** 0.4.0.0
 
 ## Совместимость
 Только для Windows.
 
 ## Установка
-1. Скачайте файл `adventures_of_heroes_v_0.3.2.1_alpha.exe` из раздела **Releases**
-или по ссылке https://disk.yandex.ru/d/Wkipz7YMMKeKuw
+1. Скачайте файл `adventures_of_heroes_v_0.4.0.0_alpha.exe` из раздела **Releases**
+или по ссылке [Яндекс.Диск](https://disk.yandex.ru/d/SN-daGh53sqLrw)
 3. Запустите файл, чтобы начать.
 
 ## Лицензия
