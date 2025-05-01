@@ -282,7 +282,7 @@ class Merchant:
             character.inventory.remove(item)
             console.print(f"{character.name} продал {item.name} {self.name}.")
         else:
-            console.print("[red]Неверный индекс товара.[/red]")
+            console.print("[red]Неверный индекс товара.[/red]" )
 
 class Location:
     def __init__(self, name: str, description: str, danger_level: int, zone_type: str, id_loc: int) -> None:
