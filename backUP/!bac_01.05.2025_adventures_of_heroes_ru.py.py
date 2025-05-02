@@ -9,38 +9,6 @@ from datetime import datetime
 #Разметка цветом
 console = Console()
 
-#Основные параметры предметов
-class Item:
-    def __init__(self, name: str, effect: str, effect_heal: int, chance: float, stock_price: int, id_item: int, mob_chances: dict = None) -> None:
-        self.name = name
-        self.effect = effect
-        self.chance = chance
-        self.effect_heal = effect_heal
-        self.stock_price = stock_price
-        self.id_item = id_item
-        self.mob_chances = mob_chances if mob_chances else {}  # Словарь шансов для разных монстров
-
-    def __str__(self):
-        return self.name
-# Подкласс для стакающихся предметов
-class StackableItem(Item):
-    def __init__(self, name: str, effect: str, effect_heal: int, chance: float, stock_price: int,
-                 id_item: int, quantity: int = 1, max_stack: int = 20, mob_chances: dict = None) -> None:
-        super().__init__(name, effect, effect_heal, chance, stock_price, id_item, mob_chances)
-        self.quantity = quantity
-        self.max_stack = max_stack
-
-    def __str__(self):
-        return f"{self.name} (x{self.quantity})"  # Этот метод уже правильный
-# Основные параметры экипировки
-class Equipment(Item):
-    def __init__(self, name: str, slot: str, effect: str, effect_value: int, chance: float, stock_price: int, id_item: int, mob_chances: dict = None) -> None:
-        super().__init__(name, effect, 0, chance, stock_price, id_item, mob_chances)
-        self.slot = slot
-        self.effect_value = effect_value
-
-
-
 #Основные параметры классов
 
 class Character:
@@ -104,17 +72,11 @@ class Character:
             f"6. Плащ: {self.equipment.get('Плащ', 'None')}\n"
         )
 
-        # Вывод инвентаря с учетом количества стакающихся предметов
-        inventory_items = []
-        for i, item in enumerate(self.inventory, 1):
-            if isinstance(item, StackableItem):
-                inventory_items.append(f"{i}. {item.name} (x{item.quantity})")
-            else:
-                inventory_items.append(f"{i}. {item.name}")
+        # Вывод инвентаря
+        inventory_items = "\n".join(
+            [f"{i + 1}. {item.name}" for i, item in enumerate(self.inventory)]) if self.inventory else "Инвентарь пуст."
 
-        inventory_str = "\n".join(inventory_items) if inventory_items else "Инвентарь пуст."
-
-        console.print(f"[green]{stats}[/green]\n[blue]{equipment}[/blue]\n[blue]Инвентарь:\n{inventory_str}[/blue]")
+        console.print(f"[green]{stats}[/green]\n[blue]{equipment}[/blue]\n[blue]Инвентарь:\n{inventory_items}[/blue]")
 
     def get_class_hero(self) -> str:
         return self.__class__.__name__
@@ -170,13 +132,8 @@ class Character:
 
             if target.get_class_hero() == "Mob":
                 for loot in target.inventory:
-                    if isinstance(loot, StackableItem):  # Проверяем, что это стакуемый предмет
-                        self.add_item(item=loot)
-                        console.print(f"[yellow3]{self.name} получает: '{loot.name}'[/yellow3]")
-                    else:
-                        # Если это не стакуемый предмет, добавляем его напрямую
-                        self.inventory.append(loot)
-                        console.print(f"[yellow3]{self.name} получает: '{loot}'[/yellow3]")
+                    self.add_item(item=loot)
+                    console.print(f"[yellow3]{self.name} получает: '{loot}'[/yellow3]")
             else:
                 if len(target.inventory) != 0:
                     target.inventory.pop(int(random.uniform(0, len(target.inventory))))
@@ -184,131 +141,42 @@ class Character:
 
     def max_health_points(self):
         return self.base_health_points * self.level
+    def add_item(self, item: str) -> None:
+        self.inventory.append(item)
 
-    def add_item(self, item: Item) -> bool:
-        # Проверка на нулевое количество
-        if isinstance(item, StackableItem) and item.quantity <= 0:
-            return False
-        # Для нестакающихся предметов
-        if not isinstance(item, StackableItem):
-            if len(self.inventory) < 30:  # Предположим, максимальный размер инвентаря 30
-                self.inventory.append(item)
-                return True
-            return False
+    def use_item(self, *, number_item: int):
+        item = self.inventory[number_item]
+        if isinstance(item, Equipment):
+            slot = item.slot
 
-        # Для стакающихся предметов
-        for existing_item in self.inventory:
-            if (isinstance(existing_item, StackableItem) and
-                    existing_item.id_item == item.id_item and
-                    existing_item.quantity < existing_item.max_stack):
+            # Проверяем, есть ли уже предмет в этом слоте
+            if self.equipment[slot] is not None:
+                # Если есть, перемещаем старый предмет в инвентарь
+                old_item = self.equipment[slot]
+                self.inventory.append(old_item)  # Добавляем старый предмет в инвентарь
+                console.print(
+                    f"[yellow3]Старый предмет '{old_item.name}' перемещен в инвентарь.[/yellow3]"
+                )
 
-                # Сколько можно добавить в этот стак
-                space_left = existing_item.max_stack - existing_item.quantity
-                add_amount = min(item.quantity, space_left)
-
-                existing_item.quantity += add_amount
-                item.quantity -= add_amount
-
-                if item.quantity <= 0:
-                    return True
-
-        # Если остались предметы или нет подходящего стака
-        while item.quantity > 0 and len(self.inventory) < 30:
-            new_stack = deepcopy(item)
-            new_stack.quantity = min(item.quantity, item.max_stack)
-            self.inventory.append(new_stack)
-            item.quantity -= new_stack.quantity
-
-        return item.quantity == 0
-
-    def use_item(self, *, number_item: int) -> None:
-        """
-        Использует предмет из инвентаря по указанному номеру.
-        Для стакающихся предметов уменьшает количество, а не удаляет сразу.
-        Аргументы: number_item (int): Номер предмета в инвентаре (начиная с 0)
-        Возможные исключения:IndexError: если номер предмета выходит за границы инвентаря
-        """
-        try:
-            # Проверка корректности номера предмета
-            if number_item < 0 or number_item >= len(self.inventory):
-                raise IndexError("Номер предмета выходит за границы инвентаря")
-
-            item = self.inventory[number_item]
-
-            # Обработка экипировки
-            if isinstance(item, Equipment):
-                self._use_equipment(item, number_item)
-
-            # Обработка стакающихся предметов (зелий и т.д.)
-            elif isinstance(item, StackableItem):
-                self._use_stackable_item(item, number_item)
-
-            # Обработка обычных предметов
-            else:
-                self._use_regular_item(item, number_item)
-
-        except IndexError as e:
-            console.print(f"[red]Ошибка: {str(e)}[/red]")
-        except Exception as e:
-            console.print(f"[red]Неизвестная ошибка при использовании предмета: {str(e)}[/red]")
-
-    def _use_equipment(self, item: Equipment, slot_index: int) -> None:
-        """Вспомогательный метод для использования экипировки"""
-        slot = item.slot
-
-        # Если в слоте уже есть предмет - возвращаем его в инвентарь
-        if self.equipment[slot] is not None:
-            old_item = self.equipment[slot]
-            self.inventory.append(old_item)
-            console.print(f"[yellow3]Сняли: {old_item.name}[/yellow3]")
-
-        # Экипируем новый предмет
-        self.equipment[slot] = item
-        self.inventory.pop(slot_index)
-        self.update_stats()
-
-        console.print(
-            f"------------------------------------\n"
-            f"Экипировано: {item.name} ({slot})\n"
-            f"------------------------------------"
-        )
-
-    def _use_stackable_item(self, item: StackableItem, item_index: int) -> None:
-        """Вспомогательный метод для использования стакающихся предметов"""
-        # Применяем эффект
-        if item.effect == "heal":
-            self.health_points = min(
-                self.health_points + item.effect_heal,
-                self.max_health_points()
-            )
+            # Экипируем новый предмет
+            self.equipment[slot] = item
+            self.update_stats()  # Обновляем характеристики
             console.print(
                 f"------------------------------------\n"
-                f"Здоровье +{item.effect_heal} (осталось: {item.quantity - 1})\n"
+                f"Вы экипировали {item.name} в слот '{slot}'\n"
+                f"------------------------------------"
+            )
+        else:
+            self.health_points += item.effect_heal
+            console.print(
+                f"------------------------------------\n"
+                f"Ваше здоровье восполнено на {item.effect_heal} единиц!\n"
                 f"------------------------------------"
             )
 
-        # Уменьшаем количество
-        item.quantity -= 1
-
-        # Если предмет закончился - удаляем из инвентаря
-        if item.quantity <= 0:
-            self.inventory.pop(item_index)
-
-    def _use_regular_item(self, item: Item, item_index: int) -> None:
-        """Вспомогательный метод для обычных предметов"""
-        if item.effect == "heal":
-            self.health_points = min(
-                self.health_points + item.effect_heal,
-                self.max_health_points()
-            )
-            console.print(
-                f"------------------------------------\n"
-                f"Здоровье +{item.effect_heal}\n"
-                f"------------------------------------"
-            )
-
-        # Удаляем предмет после использования
-        self.inventory.pop(item_index)
+        self.inventory.pop(number_item)  # Удаляем предмет из инвентаря
+        if self.health_points > self.max_health_points():
+            self.health_points = self.max_health_points()
 
     def remove_item(self, slot: str) -> None:
         if slot in self.equipment and self.equipment[slot] is not None:
@@ -330,7 +198,7 @@ class Character:
 
     def get_all_params_for_save(self) -> dict:
         save_hero = {
-            'version': 4,  # Обновляем версию на 4
+            'version': 3,  # Обновляем версию на 3
             'name': self.name,
             'level': self.level,
             'health_points': self.health_points,
@@ -341,8 +209,8 @@ class Character:
             'count_kill': self.count_kill,
             'location': self.location.name if isinstance(self.location, Location) else "Город",
             'class_character': self.class_character,
-            'inventory': self._get_inventory_for_save(),
-            'equipment': self._get_equipment_for_save(),  # Используем новый метод
+            'inventory': self.get_list_id_item_from_save(self.inventory),
+            'equipment': self.get_list_id_item_from_save(self.equipment.values()),
             'money': self.money,  # Сохраняем количество денег
             'now_time': round(time.time())
         }
@@ -355,32 +223,6 @@ class Character:
             inventory_from_save.append(self.inventory[i].id_item)
             i += 1
         return [item.id_item if item else None for item in items]
-
-    def _get_inventory_for_save(self) -> list:
-        inventory_data = []
-        for item in self.inventory:
-            if isinstance(item, StackableItem):
-                inventory_data.append({
-                    'id': item.id_item,
-                    'quantity': item.quantity
-                })
-            else:
-                inventory_data.append({
-                    'id': item.id_item,
-                    'quantity': 1
-                })
-        return inventory_data
-
-    def _get_equipment_for_save(self) -> list:
-        """Возвращает список ID предметов экипировки для сохранения"""
-        equipment_data = []
-        for slot in ["Голова", "Тело", "Руки", "Ноги", "Оружие", "Плащ"]:
-            item = self.equipment.get(slot)
-            if item:
-                equipment_data.append(item.id_item)
-            else:
-                equipment_data.append(None)
-        return equipment_data
 
     def update_stats(self):
         self.attack_power = self.base_attack_power * self.level
@@ -423,14 +265,11 @@ class Merchant:
 
     def buy_item(self, character: Character, item_index: int):
         if 0 <= item_index < len(self.items):
-            item = deepcopy(self.items[item_index])  # Создаем копию предмета
+            item = self.items[item_index]
             if character.money >= item.stock_price:
                 character.money -= item.stock_price
-                if character.add_item(item):
-                    console.print(f"{character.name} купил {item.name} у {self.name}.")
-                else:
-                    console.print("[red]Не удалось добавить предмет в инвентарь![/red]")
-                    character.money += item.stock_price  # Возвращаем деньги
+                character.add_item(item)
+                console.print(f"{character.name} купил {item.name} у {self.name}.")
             else:
                 console.print("[red]Недостаточно денег![/red]")
         else:
@@ -439,36 +278,9 @@ class Merchant:
     def sell_item(self, character: Character, item_index: int):
         if 0 <= item_index < len(character.inventory):
             item = character.inventory[item_index]
-
-            # Для стакающихся предметов спрашиваем количество
-            if isinstance(item, StackableItem):
-                max_sell = item.quantity
-                console.print(f"У вас есть {max_sell} шт. {item.name}")
-                try:
-                    sell_count = int(input(f"Сколько хотите продать? (1-{max_sell}): "))
-                    if sell_count < 1 or sell_count > max_sell:
-                        console.print("[red]Неверное количество![/red]")
-                        return
-                except ValueError:
-                    console.print("[red]Введите число![/red]")
-                    return
-
-                # Продаем указанное количество
-                sell_price = (item.stock_price // 2) * sell_count
-                character.money += sell_price
-
-                if sell_count == max_sell:
-                    character.inventory.pop(item_index)  # Удаляем весь стак
-                else:
-                    item.quantity -= sell_count  # Уменьшаем количество
-
-                console.print(f"{character.name} продал {sell_count} шт. {item.name} за {sell_price} монет.")
-            else:
-                # Для нестакающихся предметов
-                sell_price = item.stock_price // 2
-                character.money += sell_price
-                character.inventory.pop(item_index)
-                console.print(f"{character.name} продал {item.name} за {sell_price} монет.")
+            character.money += item.stock_price // 2  # Продаем за половину цены
+            character.inventory.remove(item)
+            console.print(f"{character.name} продал {item.name} {self.name}.")
         else:
             console.print("[red]Неверный индекс товара.[/red]")
 
@@ -483,10 +295,36 @@ class Location:
     def __str__(self):
         return f"{self.name}: {self.description} (Уровень опасности: {self.danger_level}, Тип зоны: {self.zone_type})"
 
+
+
 #Принты для избавления от повторов
 def massage_invalid_command() -> str:
     massage = (f"[dark_olive_green1]---------------------------------------------\n" + f"Неверная команда. Попробуйте ввести другую...\n" + f"---------------------------------------------[/dark_olive_green1]")
     return console.print(massage)
+
+
+
+#Основные параметры предметов
+class Item:
+    def __init__(self, name: str, effect: str, effect_heal: int, chance: float, stock_price: int, id_item: int, mob_chances: dict = None) -> None:
+        self.name = name
+        self.effect = effect
+        self.chance = chance
+        self.effect_heal = effect_heal
+        self.stock_price = stock_price
+        self.id_item = id_item
+        self.mob_chances = mob_chances if mob_chances else {}  # Словарь шансов для разных монстров
+
+    def __str__(self):
+        return self.name
+#Основные параметры экипировки
+class Equipment(Item):
+    def __init__(self, name: str, slot: str, effect: str, effect_value: int, chance: float, stock_price: int, id_item: int, mob_chances: dict = None) -> None:
+        super().__init__(name, effect, 0, chance, stock_price, id_item, mob_chances)
+        self.slot = slot
+        self.effect_value = effect_value
+
+
 
 #Базы данных
 #База данных врагов
@@ -497,9 +335,9 @@ list_name_orcs = [
 ]
 #База данных предметов
 item_database = [
-    StackableItem(name="Малое зелье лечения", effect="heal", effect_heal=50, chance=33.3, stock_price=10, id_item=1,mob_chances={"Азог":50}),  # 33.3
-    StackableItem(name="Среднее зелье лечения", effect="heal", effect_heal=100, chance=10.0, stock_price=20, id_item=2, mob_chances={"Азог":20,"Балкмег":30}),# 10
-    StackableItem(name="Большое зелье лечения", effect="heal", effect_heal=200, chance=5.0, stock_price=50, id_item=3, mob_chances={"Азог":10,"Балкмег":18}),
+    Item(name="Малое зелье лечения", effect="heal", effect_heal=50, chance=33.3, stock_price=10, id_item=1,mob_chances={"Азог":50}),  # 33.3
+    Item(name="Среднее зелье лечения", effect="heal", effect_heal=100, chance=10.0, stock_price=20, id_item=2, mob_chances={"Азог":20,"Балкмег":30}),# 10
+    Item(name="Большое зелье лечения", effect="heal", effect_heal=200, chance=5.0, stock_price=50, id_item=3, mob_chances={"Азог":10,"Балкмег":18}),
     Equipment(name="Шлем рыцаря", slot="Голова", effect="defence", effect_value=5, chance=5.0, stock_price=100, id_item=4),
     Equipment(name="Кираса рыцаря", slot="Тело", effect="defence", effect_value=10, chance=5.0, stock_price=200, id_item=5,mob_chances={"Балкмег":7}),
     Equipment(name="Перчатки силы", slot="Руки", effect="attack", effect_value=3, chance=5.0, stock_price=75, id_item=6),
@@ -511,21 +349,7 @@ item_database = [
     # Item(name="Большое зелье лечения", effect="heal", effect_heal=200, chance=5.0, stock_price=50, id_item=3)  # 5
 ]
 
-"""
-item_database = [
-    StackableItem(name="Малое зелье лечения", effect="heal", effect_heal=50, chance=33.3, stock_price=10, id_item=1, mob_chances={"Азог":50}),
-    StackableItem(name="Среднее зелье лечения", effect="heal", effect_heal=100, chance=10.0, stock_price=20, id_item=2, mob_chances={"Азог":20,"Балкмег":30}),
-    StackableItem(name="Большое зелье лечения", effect="heal", effect_heal=200, chance=5.0, stock_price=50, id_item=3, mob_chances={"Азог":10,"Балкмег":18}),
-    Equipment(name="Шлем рыцаря", slot="Голова", effect="defence", effect_value=5, chance=5.0, stock_price=100, id_item=4),
-    Equipment(name="Кираса рыцаря", slot="Тело", effect="defence", effect_value=10, chance=5.0, stock_price=200, id_item=5, mob_chances={"Балкмег":7}),
-    Equipment(name="Перчатки силы", slot="Руки", effect="attack", effect_value=3, chance=5.0, stock_price=75, id_item=6),
-    Equipment(name="Сапоги ловкости", slot="Ноги", effect="defence", effect_value=3, chance=5.0, stock_price=75, id_item=7),
-    Equipment(name="Меч воина", slot="Оружие", effect="attack", effect_value=10, chance=5.0, stock_price=150, id_item=8),
-    Equipment(name="Плащ теней", slot="Плащ", effect="defence", effect_value=7, chance=5.0, stock_price=100, id_item=9, mob_chances={"Балкмег":7}),
-    Equipment(name="Старые перчатки", slot="Руки", effect="defence", effect_value=1, chance=20.0, stock_price=8, id_item=10),
-    Equipment(name="Старые сапоги", slot="Ноги", effect="defence", effect_value=2, chance=2.0, stock_price=8, id_item=11, mob_chances={"Внизуда":0}),
-]
-"""
+
 #База данных локаций
 location_database = [
     Location(name="Город", description="Место, полное жизни и возможностей.", danger_level=1, zone_type="peaceful", id_loc="1"),
@@ -612,56 +436,40 @@ def fight_wiht_mob():
 
 def generate_inventory(item_database: list, allowed_item_ids: list, max_item=5, mob_name: str = None):
     inventory = []
+
+    # Фильтруем предметы из базы данных по allowed_item_ids
     filtered_items = [item for item in item_database if item.id_item in allowed_item_ids]
 
+    # Генерируем инвентарь
     for _ in range(max_item):
-        item_template = random.choice(filtered_items)
-        chance = item_template.mob_chances.get(mob_name, item_template.chance)
+        item = random.choice(filtered_items)  # Выбираем случайный предмет из отфильтрованных
 
+        # Получаем шанс на выпадение предмета для данного монстра
+        chance = item.mob_chances.get(mob_name, item.chance)  # Если шанса нет, используем стандартный шанс
+
+        # Проверяем шанс на выпадение предмета
         if random.uniform(0, 100) < chance:
-            if isinstance(item_template, StackableItem):
-                # Создаем новый экземпляр с quantity=1
-                new_item = deepcopy(item_template)
-                new_item.quantity = 1
-                inventory.append(new_item)
-            else:
-                inventory.append(deepcopy(item_template))
+            inventory.append(item)
 
     return inventory
 
 # Метод торговли
 def trade_with_merchant(character: Character, merchant: Merchant):
     while True:
-        console.print("\n[bold]Меню торговли:[/bold]")
-        console.print(f"Ваши деньги: {character.money} монет")
         merchant.show_items()
-        character.show_character_and_inventory()
-
-        action = input("\nВведите 'купить [номер]' или 'к [номер]' для покупки\n"
-                       "Введите 'продать [номер]' или 'п [номер]' для продажи\n"
+        action = input("Введите 'купить' или 'к' для покупки\n"
+                       "Введите 'продать' или 'п' для продажи\n"
                        "Для выхода 'выйти' или 'в': ").strip().lower()
-
-        if action.startswith(('купить ', 'к ')):
-            try:
-                parts = action.split()
-                item_index = int(parts[1]) - 1
-                merchant.buy_item(character, item_index)
-            except (ValueError, IndexError):
-                console.print("[red]Неверный формат команды. Используйте 'купить [номер]'[/red]")
-
-        elif action.startswith(('продать ', 'п ')):
-            try:
-                parts = action.split()
-                item_index = int(parts[1]) - 1
-                merchant.sell_item(character, item_index)
-            except (ValueError, IndexError):
-                console.print("[red]Неверный формат команды. Используйте 'продать [номер]'[/red]")
-
+        if action in ["купить", "к"]:
+            item_index = int(input("Введите номер товара для покупки: ")) - 1
+            merchant.buy_item(character, item_index)
+        elif action in ["продать", "п"]:
+            item_index = int(input("Введите номер предмета для продажи: ")) - 1
+            merchant.sell_item(character, item_index)
         elif action in ["выйти", "в"]:
             break
         else:
             console.print("[red]Неверная команда.[/red]")
-
 
 #Функция перемещения персонажа
 def move_character():
@@ -684,45 +492,59 @@ def move_character():
 
 #Функции сохранения и загрузки
 def check_file_save(dict_character: dict) -> bool:
-    if not isinstance(dict_character, dict):
-        return False
+    list_error = []
 
     # Проверка версии
-    version = dict_character.get('version', 0)
-    if version != 4:
-        return False
+    if 'version' not in dict_character or dict_character['version'] != 3:
+        list_error.append("Неверная версия сохранения. Сохранения, созданные до обновления версии, не будут совместимы с этой версией игры.")
 
-    # Проверка обязательных полей
-    required_fields = {
-        'name': str,
-        'level': int,
-        'health_points': int,
-        'attack_power': int,
-        'defence': int,
-        'experience': int,
-        'exp_base': int,
-        'count_kill': int,
-        'location': str,
-        'money': int,
-        'now_time': int
-    }
-
-    for field, field_type in required_fields.items():
-        if field not in dict_character or not isinstance(dict_character[field], field_type):
-            return False
+    # Проверка основных атрибутов
+    if not isinstance(dict_character.get('name'), str):
+        list_error.append("Параметр 'Имя героя' не является строкой")
+    if not isinstance(dict_character.get('level'), int):
+        list_error.append("Параметр 'уровень героя' не является целым числом")
+    if not isinstance(dict_character.get('health_points'), int):
+        list_error.append("Параметр количество жизней не является целым числом")
+    if not isinstance(dict_character.get('attack_power'), int):
+        list_error.append("Параметр 'атака' не является целым числом")
+    if not isinstance(dict_character.get('defence'), int):
+        list_error.append("Параметр 'защита' не является целым числом")
+    if not isinstance(dict_character.get('experience'), int):
+        list_error.append("Параметр 'опыт' не является целым числом")
+    if not isinstance(dict_character.get('exp_base'), int):
+        list_error.append("Параметр 'базовый опыт' не является целым числом")
+    if not isinstance(dict_character.get('count_kill'), int):
+        list_error.append("Параметр 'количество убийств' не является целым числом")
+    if not isinstance(dict_character.get('location'), str):
+        list_error.append("Параметр 'локация' не является строкой")
+    if not isinstance(dict_character.get('class_character'), str):
+        list_error.append("Параметр 'класс героя' не является строкой")
+    if not isinstance(dict_character.get('money'), int):  # Проверка на наличие денег
+        list_error.append("Параметр 'деньги' не является целым числом")
+    if not isinstance(dict_character.get('now_time'), int):
+        list_error.append("Параметр 'время сохранения' не является целым числом")
 
     # Проверка инвентаря
     if not isinstance(dict_character.get('inventory'), list):
+        list_error.append("Параметр 'инвентарь' не является списком")
+    else:
+        for item_id in dict_character['inventory']:
+            if not isinstance(item_id, int):
+                list_error.append(f"Элемент инвентаря '{item_id}' не является целым числом")
+
+    # Проверка снаряжения
+    if not isinstance(dict_character.get('equipment'), list):
+        list_error.append("Параметр 'снаряжение' не является списком")
+    else:
+        for item_id in dict_character['equipment']:
+            if item_id is not None and not isinstance(item_id, int):
+                list_error.append(f"Элемент снаряжения '{item_id}' не является целым числом или None")
+
+    # Вывод ошибок
+    if list_error:
+        for error in list_error:
+            print("Ошибка в файле сохранения:", error)
         return False
-
-    for item in dict_character['inventory']:
-        if not isinstance(item, dict) or 'id' not in item or 'quantity' not in item:
-            return False
-
-    # Проверка экипировки
-    if not isinstance(dict_character.get('equipment'), list) or len(dict_character['equipment']) != 6:
-        return False
-
     return True
 
 def display_saves(saves):
@@ -739,32 +561,6 @@ def display_saves(saves):
             print(f"Ячейка сохранения № {index}: Статус: {status} (не удалось загрузить данные)")
 
 
-def convert_old_save(old_save: dict) -> dict:
-    """Конвертирует старые сохранения (версии 3 и ниже) в новый формат (версия 4)"""
-    if not isinstance(old_save, dict):
-        return old_save
-
-    new_save = old_save.copy()
-    new_save['version'] = 4  # Устанавливаем новую версию
-
-    # Конвертируем инвентарь
-    if 'inventory' in new_save and isinstance(new_save['inventory'], list):
-        new_inventory = []
-        for item in new_save['inventory']:
-            if isinstance(item, int):  # Старый формат - только ID
-                new_inventory.append({'id': item, 'quantity': 1})
-            elif isinstance(item, dict):  # Уже новый формат
-                new_inventory.append(item)
-            else:  # Неизвестный формат
-                continue
-        new_save['inventory'] = new_inventory
-
-    # Конвертируем экипировку (если нужно)
-    if 'equipment' not in new_save:
-        new_save['equipment'] = [None] * 6  # 6 слотов экипировки
-
-    return new_save
-
 
 def save_in_file():
     if not os.path.isdir("save"):
@@ -778,138 +574,104 @@ def save_in_file():
 def get_list_all_saves():
     list_saves = []
     try:
-        if not os.path.exists('save/save.json'):
-            return list_saves
-
         with open('save/save.json', 'r', encoding='utf-8') as file:
-            content = file.read().strip()
-            if not content:
-                return list_saves
-
-            saves = content.split("₽")
-            for save_str in saves:
-                if not save_str.strip():
-                    continue
-
-                try:
-                    save_data = json.loads(save_str)
-                    # Конвертируем старые сохранения в новый формат
-                    if save_data.get('version', 0) < 4:
-                        save_data = convert_old_save(save_data)
-
-                    # Проверяем сохранение
-                    if check_file_save(save_data):
-                        list_saves.append((save_data, "OK"))
-                    else:
-                        list_saves.append((save_data, "Ошибка проверки"))
-                except json.JSONDecodeError:
-                    list_saves.append((save_str, "Ошибка формата JSON"))
-                except Exception as e:
-                    list_saves.append((save_str, f"Ошибка обработки: {str(e)}"))
-
-    except Exception as e:
-        console.print(f"[red]Ошибка при чтении файла сохранения: {str(e)}[/red]")
-
+            content = file.read()
+            saves = content.split("₽")  # Разбиваем по разделителю
+            for save in saves:
+                if save.strip():  # Игнорируем пустые строки
+                    try:
+                        dict_character_in_download = json.loads(save)
+                        if check_file_save(dict_character_in_download):
+                            list_saves.append((dict_character_in_download, "OK"))  # Добавляем корректное сохранение
+                        else:
+                            list_saves.append((dict_character_in_download, "Ошибка"))  # Добавляем поврежденное сохранение
+                    except json.JSONDecodeError as e:
+                        print("Ошибка при декодировании JSON:", e)
+                        list_saves.append((save, "Ошибка"))  # Добавляем строку с ошибкой
+    except FileNotFoundError:
+        print("Файл сохранения не найден.")
     return list_saves
 
 
 def download(database: list):
     list_saves = get_list_all_saves()
     if not list_saves:
-        console.print("[yellow]Нет доступных сохранений.[/yellow]")
+        print("Нет доступных сохранений.")
         return None
 
-    # Показываем все сохранения с статусом
-    console.print("Доступные сохранения:")
-    valid_count = 0
-    for index, (save, status) in enumerate(list_saves, 1):
-        if isinstance(save, dict):
-            name = save.get('name', 'Неизвестно')
-            level = save.get('level', 0)
-            time_str = datetime.fromtimestamp(save.get('now_time', 0)).strftime('%d.%m.%Y %H:%M')
-            console.print(f"{index}. {name} (ур. {level}), {time_str} - {status}")
-            if status == "OK":
-                valid_count += 1
+    # Отображаем все сохранения с их статусами
+    for index, (save, status) in enumerate(list_saves, start=1):
+        if isinstance(save, dict):  # Проверяем, что это словарь
+            name = save.get('name', 'Unknown')
+            level = save.get('level', 'Unknown')
+            time_saved = save.get('now_time', 0)
+            time_formatted = datetime.fromtimestamp(time_saved).strftime('%d-%m-%Y %H:%M:%S') # strftime('%d-%m-%Y %H:%M:%S')
+            print(
+                f"Ячейка сохранения № {index}: Имя: {name} Уровень: {level} Дата: {time_formatted}: Статус: {status}")
+        else:
+            print(f"Ячейка сохранения № {index}: Статус: {status} (не удалось загрузить данные)")
 
-    if valid_count == 0:
-        console.print("[red]Нет корректных сохранений для загрузки.[/red]")
-        return None
-
+    # Получаем выбор пользователя
     while True:
         try:
-            choice = input("Введите номер сохранения для загрузки (0 - отмена): ").strip()
-            if choice == '0':
-                return None
+            choice_user = int(input("Введите номер ячейки для загрузки: "))  # Получаем выбор пользователя
+            selected_save, status = list_saves[choice_user - 1]
 
-            choice_idx = int(choice) - 1
-            if 0 <= choice_idx < len(list_saves):
-                save_data, status = list_saves[choice_idx]
-                if status == "OK":
-                    hero = load_hero_user(dict_param=save_data, database=database)
-                    if hero:
-                        console.print("[green]Сохранение успешно загружено![/green]")
-                        return hero
+            if status == "OK":
+                if check_file_save(dict_character=selected_save):
+                    hero_after_load = load_hero_user(dict_param=selected_save, database=database)
+                    if hero_after_load is not None:  # Проверяем, что загрузка прошла успешно
+                        return hero_after_load
                     else:
-                        console.print("[red]Не удалось загрузить героя.[/red]")
+                        print("Ошибка: не удалось загрузить героя.")
+                        return None
                 else:
-                    console.print(f"[red]Нельзя загрузить это сохранение: {status}[/red]")
+                    print("Сохранение сломано...")
+                    return None
             else:
-                console.print("[red]Неверный номер сохранения.[/red]")
-        except ValueError:
-            console.print("[red]Пожалуйста, введите число.[/red]")
+                print("Ошибка: сохранение повреждено.")
+                return None
+        except (IndexError, ValueError) as e:
+            print("Неверный выбор сохранения. Пожалуйста, введите корректный номер ячейки.")
+
 
 def load_hero_user(*, dict_param: dict, database: list):
-    # Проверяем версию сохранения
-    if dict_param.get('version') != 4:
-        console.print("[red]Неверная версия сохранения[/red]")
-        return None
+    loading_character_from_file = Human(name=dict_param['name'], level=dict_param['level'])
+    loading_character_from_file.health_points = dict_param['health_points']
+    loading_character_from_file.attack_power = dict_param['attack_power']
+    loading_character_from_file.defence = dict_param['defence']
+    loading_character_from_file.experience = dict_param['experience']
+    loading_character_from_file.exp_base = dict_param['exp_base']
+    loading_character_from_file.count_kill = dict_param['count_kill']
+    loading_character_from_file.money = dict_param['money']  # Загружаем количество денег
 
-    try:
-        # Создаем нового персонажа
-        hero = Human(name=dict_param['name'], level=dict_param['level'])
-        hero.health_points = dict_param['health_points']
-        hero.attack_power = dict_param['attack_power']
-        hero.defence = dict_param['defence']
-        hero.experience = dict_param['experience']
-        hero.exp_base = dict_param['exp_base']
-        hero.count_kill = dict_param['count_kill']
-        hero.money = dict_param['money']
-        hero.class_character = dict_param['class_character']
+    # Загрузка локации
+    location_name = dict_param['location']
+    loading_character_from_file.location = next(
+        (loc for loc in location_database if loc.name == location_name),
+        None
+    )
 
-        # Загружаем локацию
-        location_name = dict_param.get('location', 'Город')
-        hero.location = next(
-            (loc for loc in location_database if loc.name == location_name),
-            next(loc for loc in location_database if loc.name == "Город")  # fallback
-        )
+    # Если локация не найдена или пустая, устанавливаем "Город"
+    if loading_character_from_file.location is None or loading_character_from_file.location.name == "":
+        loading_character_from_file.location = next(loc for loc in location_database if loc.name == "Город")
 
-        # Загружаем инвентарь (новый формат)
-        hero.inventory = []
-        for item_data in dict_param.get('inventory', []):
-            item = next((i for i in database if i.id_item == item_data['id']), None)
-            if item:
-                if isinstance(item, StackableItem):
-                    new_item = deepcopy(item)
-                    new_item.quantity = item_data.get('quantity', 1)
-                    hero.inventory.append(new_item)
-                else:
-                    hero.inventory.append(deepcopy(item))
+    loading_character_from_file.class_character = dict_param['class_character']
 
-        # Загружаем экипировку
-        equipment_ids = dict_param.get('equipment', [])
-        slot_names = ["Голова", "Тело", "Руки", "Ноги", "Оружие", "Плащ"]
-        for i, item_id in enumerate(equipment_ids):
-            if item_id is not None:
-                item = next((item for item in database if item.id_item == item_id), None)
-                if item:
-                    hero.equipment[slot_names[i]] = item
+    # Load equipment
+    for slot, item_id in zip(loading_character_from_file.equipment.keys(), dict_param['equipment']):
+        if item_id is not None:
+            item = next((item for item in database if item.id_item == item_id), None)
+            loading_character_from_file.equipment[slot] = item
 
-        hero.update_stats()
-        return hero
+    # Load inventory
+    loading_character_from_file.inventory = [
+        next((item for item in database if item.id_item == item_id), None)
+        for item_id in dict_param['inventory']
+    ]
 
-    except Exception as e:
-        console.print(f"[red]Ошибка при загрузке персонажа: {str(e)}[/red]")
-        return None
+    loading_character_from_file.update_stats()
+    return loading_character_from_file
 
 def delete_specific_save(save_index: int):
     saves = get_list_all_saves()
