@@ -2,23 +2,17 @@ from rich.columns import Columns
 from rich.panel import Panel
 from rich.text import Text
 from rich.console import Console
-from rich.box import ROUNDED
-from copy import deepcopy
-from datetime import datetime
+import threading
+import queue
+import time
 import random
 import json
 import os
-import sys
-import time
-try:
-    import msvcrt  # Для Windows
-except ImportError:
-    import select  # Для Unix-систем
-
+from copy import deepcopy
+from rich.console import Console
+from datetime import datetime
 # константы
-MAX_INVENTORY_SIZE = 999999999 # инвентарь - пока бесконечность
-TURN_TIME = 3  # Время на ход в секундах
-
+MAX_INVENTORY_SIZE = 999999999 # пока бесконечность
 #Разметка цветом
 console = Console()
 #класс панель
@@ -87,551 +81,16 @@ class GameUI:
         self.update_ui()
         console.print(Panel(prompt, style="bold"))
         return input("> ")
-
-# все функции для баров (красявости и читательность удобство)
-
-def show_hero_creation_panel(hero_name, location_name):
-    clear_screen()
-    """Отображает красивую панель создания героя"""
-    PANEL_WIDTH = 42  # Ширина панели (должна соответствовать количеству символов в рамке)
-
-    creation_text = Text()
-    creation_text.append("\n\n", style="bold")
-
-    # Верхняя граница
-    creation_text.append("╔" + "═" * (PANEL_WIDTH - 2) + "╗\n", style="bright_cyan")
-    creation_text.append("║" + " " * (PANEL_WIDTH - 2) + "║\n", style="bright_cyan")
-
-    # Заголовок
-    creation_text.append("║", style="bright_cyan")
-    creation_text.append(" " * ((PANEL_WIDTH - len("НОВЫЙ ГЕРОЙ СОЗДАН!")) // 2), style="bright_cyan")
-    creation_text.append("НОВЫЙ ГЕРОЙ СОЗДАН!", style="bright_cyan bold blink")
-    creation_text.append(" " * ((PANEL_WIDTH - len("НОВЫЙ ГЕРОЙ СОЗДАН!")-2) // 2), style="bright_cyan")
-    creation_text.append("║\n", style="bright_cyan")
-
-    creation_text.append("║" + " " * (PANEL_WIDTH - 2) + "║\n", style="bright_cyan")
-    creation_text.append("╠" + "═" * (PANEL_WIDTH - 2) + "╣\n", style="bright_cyan")
-
-    # Имя героя
-    name_line = f"Имя: {hero_name}"
-    creation_text.append("║ ", style="bright_cyan")
-    creation_text.append(name_line, style="bright_yellow bold")
-    creation_text.append(" " * (PANEL_WIDTH - len(name_line) - 3) + "║\n", style="bright_cyan")
-
-    # Класс героя
-    class_line = "Класс: Человек (Странник)"
-    creation_text.append("║ ", style="bright_cyan")
-    creation_text.append(class_line, style="bright_yellow")
-    creation_text.append(" " * (PANEL_WIDTH - len(class_line) - 3) + "║\n", style="bright_cyan")
-
-    # Локация
-    location_line = f"Стартовая локация: {location_name}"
-    creation_text.append("║ ", style="bright_cyan")
-    creation_text.append(location_line, style="bright_yellow")
-    creation_text.append(" " * (PANEL_WIDTH - len(location_line) - 3) + "║\n", style="bright_cyan")
-
-    # Пустая строка
-    creation_text.append("║" + " " * (PANEL_WIDTH - 2) + "║\n", style="bright_cyan")
-
-    # Совет 1
-    advice_line1 = "Совет: Начните с исследования Храма"
-    creation_text.append("║ ", style="bright_cyan")
-    creation_text.append(advice_line1, style="italic")
-    creation_text.append(" " * (PANEL_WIDTH - len(advice_line1) - 3) + "║\n", style="bright_cyan")
-
-    # Совет 2
-    advice_line2 = "и попробуйте сразиться с монстрами"
-    creation_text.append("║ ", style="bright_cyan")
-    creation_text.append(advice_line2, style="italic")
-    creation_text.append(" " * (PANEL_WIDTH - len(advice_line2) - 3) + "║\n", style="bright_cyan")
-
-    # Нижняя граница
-    creation_text.append("╚" + "═" * (PANEL_WIDTH - 2) + "╝\n", style="bright_cyan")
-
-    console.print(creation_text)
-    input("\nНажмите Enter чтобы начать свое приключение...")
-
-
-def show_name_confirmation(name):
-    """Отображает панель подтверждения имени"""
-    clear_screen()
-
-    # Создаем текст для панели
-    panel_content = Text()
-    name_text = Text(f"Вы выбрали имя: {name}\n\n", style="bright_yellow")
-    name_text.append(name, style="bold bright_green")
-    panel_content.append(name_text)
-
-    question = Text("Это имя вам нравится?\n\n", style="bright_yellow")
-    panel_content.append(question)
-
-    options = Text()
-    options.append("1. Да, начать игру!\n", style="green")
-    options.append("2. Нет, изменить имя", style="red")
-    panel_content.append(options)
-
-    # Создаем панель
-    panel = Panel(
-        panel_content,
-        border_style="bright_yellow",
-        width=50,
-        padding=(1, 2)
-    )
-
-    console.print(panel)
-    return input("> Ваш выбор (1/2): ").strip().lower()
-
-
-def show_name_input_panel():
-    """Отображает красивую панель ввода имени"""
-    clear_screen()
-
-    # Создаем текст для панели
-    panel_content = Text()
-    title = Text("СОЗДАНИЕ ПЕРСОНАЖА\n", style="bold bright_cyan")
-    title.justify = "center"  # Выравнивание по центру
-    panel_content.append(title)
-    panel_content.append("\nДайте имя вашему герою\n", style="bright_yellow")
-    panel_content.append("(или введите 'выход' для отмены)", style="italic")
-
-    # Создаем панель
-    panel = Panel(
-        panel_content,
-        border_style="bright_blue",
-        width=50,
-        padding=(1, 2)
-    )
-
-    console.print(panel)
-    return input("\n> Введите имя героя: ").strip()
-
-def character_creation_flow():
-    """Управляет процессом создания персонажа"""
-    while True:
-        # Шаг 1: Ввод имени
-        hero_name = show_name_input_panel()
-
-        if hero_name.lower() in ["выход", "в"]:
-            console.print("[bright_red]Создание персонажа отменено[/bright_red]")
-            time.sleep(1)
-            return None
-
-        if not hero_name:
-            console.print("[red]Имя не может быть пустым![/red]")
-            time.sleep(1)
-            continue
-
-        # Шаг 2: Подтверждение имени
-        choice = show_name_confirmation(hero_name)
-
-        if choice in ["1", "да", "д", ""]:
-            # Создаем героя
-            hero = Human(level=1, name=hero_name)
-            hero.active_quests = []
-            hero.completed_quests = []
-            hero.set_location(Location(
-                name="Храм",
-                description="Древний храм",
-                danger_level=4,
-                zone_type="combat",
-                id_loc=4
-            ))
-
-            # Показываем финальный экран
-            show_hero_creation_panel(hero.name, hero.location.name)
-            return hero
-
-        elif choice in ["2", "нет", "н"]:
-            console.print("[yellow]Попробуем другое имя...[/yellow]")
-            time.sleep(1)
-            continue
-
-        else:
-            console.print("[red]Неверный выбор![/red]")
-            time.sleep(1)
-
-def show_trade_interface(hero, merchant):
-    """Отображает интерфейс торговли с панелями"""
-    clear_screen()
-
-    # 1. Панель предложений торговца (левая)
-    merchant_text = Text()
-    merchant_text.append(f"Торговец: {merchant.name}\n", style="bold underline")
-    #merchant_text.append(f"Ваши деньги: {hero.money} монет\n", style="gold1")
-    merchant_text.append("\nПредлагаемые товары:\n", style="bold")
-
-    for i, item in enumerate(merchant.items, 1):
-        merchant_text.append(f"{i}. {item.name} - {item.stock_price} монет\n")
-
-    merchant_panel = Panel(
-        merchant_text,
-        title="Торговец",
-        border_style="blue",
-        width=40
-    )
-
-    # 2. Панель инвентаря героя (правая)
-    inventory_text = Text()
-    inventory_text.append("Ваш инвентарь:\n", style="bold underline")
-    inventory_text.append(f"Ваши деньги: {hero.money} монет\n", style="gold1")
-
-    if not hero.inventory:
-        inventory_text.append("Инвентарь пуст\n", style="dim")
-    else:
-        for i, item in enumerate(hero.inventory, 1):
-            if isinstance(item, StackableItem):
-                inventory_text.append(f"{i}. {item.name} (x{item.quantity}) - {item.stock_price // 2} монет\n")
-            else:
-                inventory_text.append(f"{i}. {item.name} - {item.stock_price // 2} монет\n")
-
-    inventory_panel = Panel(
-        inventory_text,
-        title="Инвентарь",
-        border_style="green",
-        width=40
-    )
-
-    # 3. Панель диалога (середина)
-    dialog_text = Text()
-    dialog_text.append("Диалог с торговцем:\n", style="bold underline")
-
-    # Проверяем активные квесты от этого торговца
-    merchant_quests = [q for q in hero.active_quests if q.giver == "Торговец"]
-    if merchant_quests:
-        dialog_text.append("\nАктивные квесты:\n", style="bold")
-        for quest in merchant_quests:
-            status = "Готово к сдаче!" if hero.is_quest_ready_to_complete(
-                quest.id) else f"{quest.current_amount}/{quest.target_amount}"
-            color = "green" if hero.is_quest_ready_to_complete(quest.id) else None
-            dialog_text.append(f"- {quest.name}: ")
-            dialog_text.append(status + "\n", style=color)
-
-    dialog_panel = Panel(
-        dialog_text,
-        title="Диалог",
-        border_style="yellow",
-        width=40
-    )
-
-    # 4. Панель действий (нижняя)
-    actions_text = Text()
-    actions_text.append("Доступные действия:\n", style="bold underline")
-    actions_text.append("[К]упить [номер] - купить предмет у торговца\n")
-    actions_text.append("[П]родать [номер] - продать предмет из инвентаря\n")
-    actions_text.append("[КВ]ест - получить квест от торговца\n")
-    actions_text.append("[С]дать [номер] - сдать квест\n")
-    actions_text.append("[В]ыход - закончить торговлю\n")
-
-    actions_panel = Panel(
-        actions_text,
-        title="Действия",
-        border_style="red",
-        width=120
-    )
-
-    # Вывод всех панелей
-    console.print(Columns([merchant_panel, dialog_panel, inventory_panel], expand=False))
-    console.print(actions_panel)
-
-
-def get_exp_bar(current, max_exp, width=20):
-    """Создает текстовую полоску опыта"""
-    current = max(0, int(current))
-    max_exp = max(1, int(max_exp))
-    percent = min(1.0, current / max_exp)
-
-    filled = int(percent * width)
-    empty = width - filled
-
-    exp_bar = (
-            f"[cyan]{'█' * filled}[/cyan]" +
-            f"[white]{'░' * empty}[/white] " +
-            f"{current}/{max_exp}"
-    )
-    return exp_bar
-
-
-def get_health_bar(current, max_hp, width=20):
-    """Создает текстовую полоску здоровья с правильным применением цветов"""
-    # Защита от некорректных значений
-    current = max(0, int(current))
-    max_hp = max(1, int(max_hp))
-    percent = min(1.0, current / max_hp)
-
-    # Определение цвета
-    if percent < 0.33:
-        color = "red"
-    elif percent < 0.66:
-        color = "yellow"
-    else:
-        color = "green"
-
-    # Создаем полоску здоровья
-    filled = int(percent * width)
-    empty = width - filled
-
-    # Собираем все в одну строку без переносов
-    health_bar = (
-            f"[{color}]" +
-            '█' * filled +
-            "[/]" +
-            "[white]" +
-            '░' * empty +
-            "[/] " +
-            "\n" +
-            f"{current}/{max_hp}"
-    )
-    return health_bar
-
-
-def show_character_interface(hero):
-    """Отображает интерфейс характеристик героя с 4 панелями"""
-    clear_screen()
-
-    # 1. Панель статуса (левая)
+def get_status_bar(hero):
+    """Создает статус-бар с информацией о герое"""
     status_text = Text()
     status_text.append(f"Имя: {hero.name}\n", style="bold")
-    status_text.append(f"Класс: {hero.get_class_hero_rus()}\n")
-    status_text.append(f"Уровень: {hero.level}\n", style="cyan")
-
-    # Здоровье с использованием Text.from_markup
-    health_line = Text("Здоровье: ")
-    health_line.append(Text.from_markup(get_health_bar(hero.health_points, hero.max_health_points())))
-    status_text.append(health_line)
-    status_text.append("\n\n")
-
-    # Опыт с использованием Text.from_markup
-    exp_line = Text("Опыт: ")
-    exp_line.append(Text.from_markup(get_exp_bar(hero.experience, hero.exp_base * 2)))
-    status_text.append(exp_line)
-    status_text.append("\n\n")
-
-    status_text.append(f"Атака: {hero.attack_power}\n")
-    status_text.append(f"Защита: {hero.defence}\n")
-    status_text.append(f"Убито врагов: {hero.count_kill}\n")
-    status_text.append(f"\nДеньги: {hero.money} монет\n", style="gold1")
-    status_text.append(f"Локация: {hero.location.name}\n", style="magenta")
-
-    status_panel = Panel(
-        status_text,
-        title="Статус героя",
-        border_style="blue",
-        width=40
-    )
-
-    # 2. Панель снаряжения (середина)
-    equipment_text = Text()
-    equipment_text.append("Снаряжение героя:\n", style="bold underline cyan")
-
-    slot_colors = {
-        "Голова": "bright_cyan",
-        "Тело": "bright_blue",
-        "Руки": "bright_yellow",
-        "Ноги": "bright_magenta",
-        "Оружие": "bright_red",
-        "Плащ": "bright_green"
-    }
-
-    # Создаем список слотов с сохранением порядка
-    slots = list(hero.equipment.items())
-
-    for index, (slot, item) in enumerate(slots, start=1):
-        # Нумерация и название слота
-        equipment_text.append(f"{index}. {slot}: ", style=slot_colors.get(slot, "bold"))
-
-        # Предмет или "Пусто"
-        if item:
-            equipment_text.append(item.name, style="bright_white")
-            if isinstance(item, Equipment):
-                # Добавляем бонусы для экипировки
-                equipment_text.append(f" (+{item.effect_value} {item.effect})", style="bright_green")
-        else:
-            equipment_text.append("Пусто", style="dim italic")
-
-        equipment_text.append("\n")  # Перенос строки
-
-    equipment_panel = Panel(
-        equipment_text,
-        title="[gold1]Снаряжение[/gold1]",
-        border_style="yellow",
-        width=45,
-        padding=(1, 2)
-    )
-
-    # 3. Панель инвентаря (правая)
-    inventory_text = Text()
-    inventory_text.append("Инвентарь:\n", style="bold underline")
-    if not hero.inventory:
-        inventory_text.append("Инвентарь пуст\n", style="dim")
-    else:
-        for i, item in enumerate(hero.inventory, 1):
-            if isinstance(item, StackableItem):
-                inventory_text.append(f"{i}. {item.name} (x{item.quantity})\n")
-            else:
-                inventory_text.append(f"{i}. {item.name}\n")
-
-    inventory_panel = Panel(
-        inventory_text,
-        title="Инвентарь",
-        border_style="green",
-        width=40
-    )
-
-    # 4. Панель действий (нижняя)
-    actions_text = Text()
-    actions_text.append("Управление инвентарем:\n", style="bold underline")
-    actions_text.append("1. Использовать предмет:\n", style="bold")
-    actions_text.append("   • Введите 'п [номер]' или 'предмет [номер]'\n")
-    #actions_text.append("   • Пример: 'п 1' - использовать первый предмет\n")
-    actions_text.append("2. Снять экипировку:\n", style="bold")
-    actions_text.append("   • Введите 'с [номер]' или 'снять [номер]'\n")
-    actions_text.append("   • Номера слотов: 1-Голова, 2-Тело, 3-Руки, 4-Ноги, 5-Оружие, 6-Плащ\n")
-    actions_text.append("   • Пример: 'с 3' - снять перчатки\n")
-    actions_text.append("3. Выход:\n", style="bold")
-    actions_text.append("   • Введите 'в' или 'выход' для возврата в игру\n")
-    actions_text.append("Подсказка: Номера предметов соответствуют их позициям в инвентаре", style="italic")
-
-    actions_panel = Panel(
-        actions_text,
-        title="Действия",
-        border_style="red",
-        width=120
-    )
-
-    # Вывод всех панелей
-    console.print(Columns([status_panel, equipment_panel, inventory_panel], expand=False))
-    console.print(actions_panel)
-
-
-def display_battle_interface(player, enemy, ui=None):
-    """Отображает интерфейс боя с гарантированным применением цветов"""
-    clear_screen()
-
-    # Левая панель - статус игрока
-    player_stats = Text()
-    player_stats.append(f"Имя: {player.name}\n", style="bold")
-    player_stats.append(f"Уровень: {player.level}\n", style="cyan")
-
-    # Полоска здоровья как единый текст
-    health_text = Text.from_markup(get_health_bar(player.health_points, player.max_health_points()))
-    player_stats.append("Здоровье: ")
-    player_stats.append(health_text)
-    player_stats.append("\n")
-
-    player_stats.append(f"Атака: {player.attack_power}\n")
-    player_stats.append(f"Защита: {player.defence}\n")
-    player_stats.append(f"Деньги: {player.money} монет\n", style="gold1")
-    player_panel = Panel(player_stats, title="Ваш герой", border_style="yellow", width=40)
-
-    # Правая панель - статус врага
-    enemy_stats = Text()
-    enemy_stats.append(f"Имя: {enemy.name}\n", style="bold red")
-    enemy_stats.append(f"Уровень: {enemy.level}\n", style="cyan")
-
-    # Полоска здоровья врага
-    enemy_health_text = Text.from_markup(get_health_bar(enemy.health_points, enemy.max_health_points()))
-    enemy_stats.append("Здоровье: ")
-    enemy_stats.append(enemy_health_text)
-    enemy_stats.append("\n")
-
-    enemy_stats.append(f"Атака: {enemy.attack_power}\n")
-    enemy_stats.append(f"Защита: {enemy.defence}\n")
-    enemy_panel = Panel(enemy_stats, title="Противник", border_style="red", width=40)
-
-    # Выводим панели
-    console.print(Columns([player_panel, enemy_panel], expand=False, equal=False))
-
-    # Панель действий
-    actions = Text()
-    actions.append("Доступные действия:\n", style="bold underline")
-    actions.append("1 - Обычная атака\n")
-    actions.append("2 - Попытаться убежать (30% шанс если HP < 50%)\n")
-    actions.append("3 - Использовать зелье лечения\n")
-    actions.append("4 - Сильная атака (урон x1.5)\n")
-    console.print(Panel(actions, title="Действия", border_style="blue"))
-
-def show_main_menu():
-    """Отображает главное меню в стиле игрового интерфейса"""
-    clear_screen()
-
-    # Создаем панель с командами
-    commands_text = Text()
-    commands_text.append("Доступные команды:\n", style="bold underline")
-    commands_text.append("[С]тарт - начать новую игру\n")
-    commands_text.append("[З]агрузить - загрузить игру\n")
-    commands_text.append("[У]далить - удалить сохранение\n")
-    commands_text.append("[УВ] - удалить все сохранения\n")
-    commands_text.append("[В]ыход - выйти из игры\n")
-    commands_panel = Panel(commands_text, title="Главное меню", border_style="green", width=38)
-
-    # Создаем панель статуса (пустую, так как нет героя)
-    status_text = Text()
-    status_text.append("Adventures of Heroes\n", style="bold")
-    status_text.append("Версия: 0.5.0.0\n")
-    #status_text.append("Автор: Ваше имя\n")
-    status_panel = Panel(status_text, title="Статус", border_style="blue", width=38)
-
-    # Выводим панели рядом
-    console.print(Columns([commands_panel, status_panel], expand=True))
-
-
-def character_menu(hero):
-    """Цикл меню характеристик героя"""
-    while True:
-        show_character_interface(hero)
-        command = input("\nВведите команду: ").strip().lower()
-
-        if command.startswith(('предмет ', 'п ')):
-            # Обработка команды использования предмета
-            try:
-                item_num = int(command.split()[1]) - 1  # Получаем номер предмета из команды
-                hero.use_item(number_item=item_num)
-            except (ValueError, IndexError):
-                console.print("[red]Ошибка: Неверный номер предмета[/red]")
-                input("\nНажмите Enter чтобы продолжить...")
-
-        elif command.startswith(('снять ', 'с ')):
-            # Обработка команды снятия предмета
-            try:
-                slot_num = int(command.split()[1])
-                if 1 <= slot_num <= 6:
-                    slot_names = list(hero.equipment.keys())
-                    hero.remove_item(slot=slot_names[slot_num - 1])
-                else:
-                    console.print("[red]Ошибка: Номер слота должен быть от 1 до 6[/red]")
-                    input("\nНажмите Enter чтобы продолжить...")
-            except (ValueError, IndexError):
-                console.print("[red]Ошибка: Неверный номер слота[/red]")
-                input("\nНажмите Enter чтобы продолжить...")
-
-        elif command in ["выход", "в"]:
-            break
-
-        else:
-            console.print("[red]Неверная команда![/red]")
-            input("\nНажмите Enter чтобы продолжить...")
-
-
-
-def get_main_menu_command():
-    """Получает команду в главном меню"""
-    while True:
-        show_main_menu()
-        command = input("\nВведите команду: ").strip().lower()
-
-        if command in ["старт", "с"]:
-            return "start"
-        elif command in ["загрузить", "з"]:
-            return "load"
-        elif command in ["удалить", "у"]:
-            return "delete"
-        elif command in ["удалить все", "ув"]:
-            return "delete_all"
-        elif command in ["выход", "в"]:
-            return "exit"
-        else:
-            console.print("[red]Неверная команда. Попробуйте снова.[/red]")
-            time.sleep(1)  # Задержка для чтения сообщения об ошибке
+    status_text.append(f"Уровень: {hero.level}\n")
+    status_text.append(f"Здоровье: {hero.health_points}/{hero.max_health_points()}\n")
+    status_text.append(f"Опыт: {hero.experience}/{hero.exp_base * 2}\n")
+    status_text.append(f"Локация: {hero.location.name}\n")
+    status_text.append(f"Деньги: {hero.money} монет")
+    return Panel(status_text, title="Статус героя", border_style="blue")
 
 def get_commands_panel():
     """Создает панель с доступными командами"""
@@ -642,7 +101,7 @@ def get_commands_panel():
     commands.append("[П]еремещ - сменить локацию\n")
     commands.append("[Б]ой - начать бой (в боевой зоне)\n")
     commands.append("[Т]орговец - торговля (в мирной зоне)\n")
-    commands.append("[КВ]есты - просмотр квестов\n")
+    commands.append("[К]весты - просмотр квестов\n")
     commands.append("[В]ыход - выйти из игры")
     return Panel(commands, title="Команды", border_style="green")
 
@@ -687,12 +146,19 @@ def display_interface(hero):
     else:
         commands.append("[Т]орговец - торговля\n")
 
-    commands.append("[КВ]есты - просмотр квестов\n")
+    commands.append("[К]весты - просмотр квестов\n")
     commands.append("[В]ыход - выйти из игры")
     commands_panel = Panel(commands, title="Команды", border_style="green", width=38)
 
     # Выводим панели рядом
     console.print(Columns([commands_panel, status_panel ], expand=True))
+
+
+def get_player_command(hero):
+    """Отображает интерфейс и получает команду от игрока"""
+    display_interface(hero)
+    return input("\nВведите команду: ").strip().lower()
+
 
 def get_health_color(hero):
     """Возвращает цвет для здоровья в зависимости от процента"""
@@ -831,7 +297,7 @@ class Character:
             f"Опыт героя: {self.experience} из {self.exp_base * 2} до следующего уровня\n"
             f"Количество убитых врагов: {self.count_kill}\n"
             f"Локация: {self.location.name}\n"
-            f"Деньги: {self.money} монет"  # Отображение денег
+            f"Деньги: {self.money} монет\n"  # Отображение денег
         )
 
         # Вывод снаряжения в формате ячеек
@@ -900,8 +366,11 @@ class Character:
             print(f"{self.name}, HP={self.health_points} | {target.name}, HP={target.health_points}")
         else:
             print(f"{target.name} погибает!")
-            # Убрал gain_experience и level_up из этого метода, так как они теперь обрабатываются в fight()
+            self.gain_experience(target=target)
             self.count_kill += 1
+            self.level_up(exp_base=self.exp_base)
+
+            # Только добавляем опыт, лут будем обрабатывать в fight_wiht_mob()
             if isinstance(target, Mob):
                 self.money += target.money
 
@@ -946,7 +415,12 @@ class Character:
         return item.quantity == 0
 
     def use_item(self, *, number_item: int) -> None:
-        """Использует предмет из инвентаря с удобным интерфейсом"""
+        """
+        Использует предмет из инвентаря по указанному номеру.
+        Для стакающихся предметов уменьшает количество, а не удаляет сразу.
+        Аргументы: number_item (int): Номер предмета в инвентаре (начиная с 0)
+        Возможные исключения:IndexError: если номер предмета выходит за границы инвентаря
+        """
         try:
             # Проверка корректности номера предмета
             if number_item < 0 or number_item >= len(self.inventory):
@@ -956,82 +430,30 @@ class Character:
 
             # Обработка экипировки
             if isinstance(item, Equipment):
-                slot = item.slot
-
-                # Если в слоте уже есть предмет - сообщаем о снятии
-                if self.equipment[slot] is not None:
-                    old_item = self.equipment[slot]
-                    self.inventory.append(old_item)
-                    console.print(f"\n[yellow3]Снят предмет: {old_item.name}[/yellow3]")
-
-                # Экипируем новый предмет
-                self.equipment[slot] = item
-                self.inventory.pop(number_item)
-                self.update_stats()
-
-                console.print(
-                    f"\n[green]====================================[/green]"
-                    f"\n[green]Экипирован предмет: {item.name} ({slot})[/green]"
-                    f"\n[green]====================================[/green]"
-                )
+                self._use_equipment(item, number_item)
 
             # Обработка стакающихся предметов (зелий и т.д.)
             elif isinstance(item, StackableItem):
-                # Применяем эффект
-                if item.effect == "heal":
-                    heal_amount = min(item.effect_heal, self.max_health_points() - self.health_points)
-                    self.health_points += heal_amount
-
-                    console.print(
-                        f"\n[green]====================================[/green]"
-                        f"\n[green]Использовано: {item.name}[/green]"
-                        f"\n[green]Восстановлено: {heal_amount} здоровья[/green]"
-                        f"\n[green]Осталось: {item.quantity - 1} шт.[/green]"
-                        f"\n[green]====================================[/green]"
-                    )
-
-                # Уменьшаем количество
-                item.quantity -= 1
-
-                # Если предмет закончился - удаляем из инвентаря
-                if item.quantity <= 0:
-                    self.inventory.pop(number_item)
+                self._use_stackable_item(item, number_item)
 
             # Обработка обычных предметов
             else:
-                if item.effect == "heal":
-                    heal_amount = min(item.effect_heal, self.max_health_points() - self.health_points)
-                    self.health_points += heal_amount
-
-                    console.print(
-                        f"\n[green]====================================[/green]"
-                        f"\n[green]Использовано: {item.name}[/green]"
-                        f"\n[green]Восстановлено: {heal_amount} здоровья[/green]"
-                        f"\n[green]====================================[/green]"
-                    )
-
-                # Удаляем предмет после использования
-                self.inventory.pop(number_item)
-
-            # Ждем подтверждения от игрока
-            input("\nНажмите Enter чтобы продолжить...")
+                self._use_regular_item(item, number_item)
 
         except IndexError as e:
             console.print(f"[red]Ошибка: {str(e)}[/red]")
-            input("\nНажмите Enter чтобы продолжить...")
         except Exception as e:
             console.print(f"[red]Неизвестная ошибка при использовании предмета: {str(e)}[/red]")
-            input("\nНажмите Enter чтобы продолжить...")
 
     def _use_equipment(self, item: Equipment, slot_index: int) -> None:
         """Вспомогательный метод для использования экипировки"""
         slot = item.slot
 
-        # Если в слоте уже есть предмет - сообщаем о снятии
+        # Если в слоте уже есть предмет - возвращаем его в инвентарь
         if self.equipment[slot] is not None:
             old_item = self.equipment[slot]
             self.inventory.append(old_item)
-            console.print(f"\n[yellow3]Снят предмет: {old_item.name}[/yellow3]")
+            console.print(f"[yellow3]Сняли: {old_item.name}[/yellow3]")
 
         # Экипируем новый предмет
         self.equipment[slot] = item
@@ -1039,24 +461,23 @@ class Character:
         self.update_stats()
 
         console.print(
-            f"\n[green]====================================[/green]"
-            f"\n[green]Экипирован предмет: {item.name} ({slot})[/green]"
-            f"\n[green]====================================[/green]"
+            f"------------------------------------\n"
+            f"Экипировано: {item.name} ({slot})\n"
+            f"------------------------------------"
         )
 
     def _use_stackable_item(self, item: StackableItem, item_index: int) -> None:
         """Вспомогательный метод для использования стакающихся предметов"""
         # Применяем эффект
         if item.effect == "heal":
-            heal_amount = min(item.effect_heal, self.max_health_points() - self.health_points)
-            self.health_points += heal_amount
-
+            self.health_points = min(
+                self.health_points + item.effect_heal,
+                self.max_health_points()
+            )
             console.print(
-                f"\n[green]====================================[/green]"
-                f"\n[green]Использовано: {item.name}[/green]"
-                f"\n[green]Восстановлено: {heal_amount} здоровья[/green]"
-                f"\n[green]Осталось: {item.quantity - 1} шт.[/green]"
-                f"\n[green]====================================[/green]"
+                f"------------------------------------\n"
+                f"Здоровье +{item.effect_heal} (осталось: {item.quantity - 1})\n"
+                f"------------------------------------"
             )
 
         # Уменьшаем количество
@@ -1069,39 +490,29 @@ class Character:
     def _use_regular_item(self, item: Item, item_index: int) -> None:
         """Вспомогательный метод для обычных предметов"""
         if item.effect == "heal":
-            heal_amount = min(item.effect_heal, self.max_health_points() - self.health_points)
-            self.health_points += heal_amount
-
+            self.health_points = min(
+                self.health_points + item.effect_heal,
+                self.max_health_points()
+            )
             console.print(
-                f"\n[green]====================================[/green]"
-                f"\n[green]Использовано: {item.name}[/green]"
-                f"\n[green]Восстановлено: {heal_amount} здоровья[/green]"
-                f"\n[green]====================================[/green]"
+                f"------------------------------------\n"
+                f"Здоровье +{item.effect_heal}\n"
+                f"------------------------------------"
             )
 
         # Удаляем предмет после использования
         self.inventory.pop(item_index)
 
     def remove_item(self, slot: str) -> None:
-        """Снимает предмет экипировки с выводом информации"""
         if slot in self.equipment and self.equipment[slot] is not None:
             removed_item = self.equipment[slot]
-            self.equipment[slot] = None
-            self.inventory.append(removed_item)
-            self.update_stats()
-
+            self.equipment[slot] = None  # Снимаем предмет
+            self.inventory.append(removed_item)  # Добавляем предмет обратно в инвентарь
+            self.update_stats()  # Обновляем характеристики
             console.print(
-                f"\n[yellow3]====================================[/yellow3]"
-                f"\n[yellow3]Снят предмет: {removed_item.name}[/yellow3]"
-                f"\n[yellow3]Из слота: {slot}[/yellow3]"
-                f"\n[yellow3]====================================[/yellow3]"
-            )
-
-            # Ждем подтверждения от игрока
-            input("\nНажмите Enter чтобы продолжить...")
+                f"[yellow3]Вы сняли '{removed_item.name}' из слота '{slot}' и добавили в инвентарь.[/yellow3]")
         else:
             console.print(f"[red]Ошибка: В слоте '{slot}' нет экипированного предмета.[/red]")
-            input("\nНажмите Enter чтобы продолжить...")
 
     def discard_item(self, number_item: int) -> None:
         if 0 <= number_item < len(self.inventory):
@@ -1291,41 +702,28 @@ class Character:
         console.print(f"[bright_green]====================================[/bright_green]")
 
     def show_quests(self) -> None:
-        """Показывает активные и завершенные квесты в двух колонках"""
-        # Создаем панели для активных и завершенных квестов
-        active_quests_panel = self._create_quests_panel(self.active_quests, "Активные квесты", "yellow")
-        completed_quests_panel = self._create_quests_panel(self.completed_quests, "Завершенные квесты", "green")
-
-        # Очищаем экран и выводим колонки
-        clear_screen()
-        console.print(Columns([active_quests_panel, completed_quests_panel], expand=True))
-
-        # Ждем нажатия Enter для выхода
-        input("\nНажмите Enter чтобы вернуться в меню...")
-
-    def _create_quests_panel(self, quests: list, title: str, color: str) -> Panel:
-        """Создает панель с квестами"""
-        quests_text = Text()
-
-        if not quests:
-            quests_text.append("Нет квестов", style="italic")
+        for i, quest in enumerate(self.active_quests, 1):
+            status = "[green]Готово к сдаче![/green]" if self.is_quest_ready_to_complete(
+                quest.id) else f"{quest.current_amount}/{quest.target_amount}"
+            console.print(f"{i}. {quest.name} - {status}")
+        """Показывает активные и завершенные квесты"""
+        console.print("[bold underline]Активные квесты:[/bold underline]")
+        if not self.active_quests:
+            console.print("[italic]Нет активных квестов[/italic]")
         else:
-            for i, quest in enumerate(quests, 1):
-                # Для активных квестов показываем прогресс
-                if title == "Активные квесты":
-                    status = Text("Готово к сдаче!", style="green") if self.is_quest_ready_to_complete(
-                        quest.id) else f"{quest.current_amount}/{quest.target_amount}"
-                    quests_text.append(f"{i}. {quest.name} - ")
-                    quests_text.append(status)
-                    quests_text.append("\n")
-                    quests_text.append(f"   Описание: {quest.description}\n")
-                    quests_text.append(f"   Награда: {quest.reward_exp} опыта и {quest.reward_money} монет\n"
-                                       f"   Для сдачи квеста введите у {quest.giver} '[с]дать {i}'")
-                # Для завершенных - просто список
-                else:
-                    quests_text.append(f"{i}. {quest.name}\n", style=color)
+            for i, quest in enumerate(self.active_quests, 1):
+                console.print(f"{i}. {quest}")
+                console.print(f"   [italic]Дает: {quest.giver}[/italic]")
+                console.print(f"   [yellow3]Чтобы сдать квест, введите у {quest.giver} 'сдать {quest.id}'[/yellow3]")
+                console.print(f"   Награда: {quest.reward_exp} опыта и {quest.reward_money} монет")
+                console.print("")
 
-        return Panel(quests_text, title=title, border_style=color)
+        console.print("[bold underline]Завершенные квесты:[/bold underline]")
+        if not self.completed_quests:
+            console.print("[italic]Нет завершенных квестов[/italic]")
+        else:
+            for i, quest in enumerate(self.completed_quests, 1):
+                console.print(f"{i}. [green]{quest.name} (завершён)[/green]")
 
     def is_quest_ready_to_complete(self, quest_id: int) -> bool:
         """Проверяет, можно ли завершить квест"""
@@ -1560,208 +958,145 @@ def strong_attack(character: Character, enemy: Character) -> int:
     return round(damage)
 
 
-def get_input_with_timeout(prompt, timeout):
-    """Получаем ввод с таймаутом, работает в Windows и Unix"""
-    print(prompt, end='', flush=True)
+def get_player_action(timeout=2) -> str:
+    """Получаем дейс
+    твие игрока с таймаутом"""
+    action_queue = queue.Queue()
 
-    if 'msvcrt' in sys.modules:
-        # Реализация для Windows
-        start_time = time.time()
-        input_text = []
-        while (time.time() - start_time) < timeout:
-            if msvcrt.kbhit():
-                char = msvcrt.getwch()
-                if char == '\r':  # Enter
-                    print()
-                    return ''.join(input_text)
-                elif char == '\x08':  # Backspace
-                    if input_text:
-                        input_text.pop()
-                        print('\b \b', end='', flush=True)
+    def input_thread():
+        try:
+            action = input("Выберите действие (1-атака, 2-убежать, 3-лечение, 4-сильная атака): ").strip()
+            action_queue.put(action)
+        except:
+            action_queue.put("1")  # По умолчанию обычная атака
+
+    thread = threading.Thread(target=input_thread)
+    thread.daemon = True
+    thread.start()
+    thread.join(timeout)
+
+    try:
+        return action_queue.get_nowait()
+    except queue.Empty:
+        return "1"  # По умолчанию обычная атака
+
+
+def fight(*, player: Character, enemy: Character, ui: GameUI = None):
+    """Модифицированная функция боя с возможностью выбора действий"""
+    while player.is_alive() and enemy.is_alive():
+        if ui:
+            ui.add_message(f"\nВаше HP: {player.health_points}/{player.max_health_points()}")
+            ui.add_message(f"HP врага: {enemy.health_points}/{enemy.max_health_points()}")
+            ui.update_ui()
+        else:
+            console.print(f"\nВаше HP: {player.health_points}/{player.max_health_points()}")
+            console.print(f"HP врага: {enemy.health_points}/{enemy.max_health_points()}")
+
+        # Получаем действие игрока
+        if ui:
+            action = ui.get_input(
+                "Выберите действие:\n"
+                "1 - Обычная атака\n"
+                "2 - Попытаться убежать (30% шанс если HP < 50%)\n"
+                "3 - Использовать зелье лечения\n"
+                "4 - Сильная атака (урон x1.5)\n"
+                "> "
+            )
+        else:
+            action = get_player_action()
+
+        if action == "1":  # Обычная атака
+            player.attack(target=enemy)
+            if ui:
+                ui.add_message(f"{player.name} атакует {enemy.name}")
+        elif action == "2":  # Попытка убежать
+            if try_escape(player, enemy):
+                if ui:
+                    ui.add_message("[green]Вам удалось сбежать![/green]")
                 else:
-                    input_text.append(char)
-                    print(char, end='', flush=True)
-            time.sleep(0.05)
-        print()
-        return None
-    else:
-        # Реализация для Unix
-        import select
-        ready, _, _ = select.select([sys.stdin], [], [], timeout)
-        if ready:
-            return sys.stdin.readline().strip()
-        return None
+                    console.print("[green]Вам удалось сбежать![/green]")
+                return True  # Возвращаем True, если успешно сбежали
+            else:
+                if ui:
+                    ui.add_message("[red]Не удалось сбежать![/red]")
+                else:
+                    console.print("[red]Не удалось сбежать![/red]")
+                enemy.attack(target=player)
+        elif action == "3":  # Лечение
+            if use_healing(player):
+                if ui:
+                    ui.add_message("[green]Вы использовали зелье лечения![/green]")
+                else:
+                    console.print("[green]Вы использовали зелье лечения![/green]")
+            else:
+                if ui:
+                    ui.add_message("[red]У вас нет зелий лечения![/red]")
+                else:
+                    console.print("[red]У вас нет зелий лечения![/red]")
+                # Если нет зелий - пропускаем ход
+        elif action == "4":  # Сильная атака
+            damage = strong_attack(player, enemy)
+            enemy.got_damage(damage=damage)
+            if ui:
+                ui.add_message(f"[yellow]Вы наносите сильный удар на {damage} урона![/yellow]")
+            else:
+                console.print(f"[yellow]Вы наносите сильный удар на {damage} урона![/yellow]")
+            if enemy.is_alive():
+                enemy.attack(target=player)
+        else:  # Неправильный ввод - обычная атака
+            player.attack(target=enemy)
+
+        # Если враг жив, он атакует (если игрок не лечился)
+        if enemy.is_alive() and action != "3":
+            enemy.attack(target=player)
+
+        time.sleep(0.1)  # Небольшая задержка для читаемости
+
+    return False  # Возвращаем False, если не сбежали
 
 
-def fight_turn(player, enemy, ui=None):
-    """Один ход боя с новым интерфейсом"""
-    display_battle_interface(player, enemy, ui)
-
-    # Получаем действие игрока с таймером
-    action = get_input_with_timeout("Выберите действие (1-4): ", TURN_TIME)
-
-    # Если ввод пустой или None - считаем это обычной атакой
-    if action is None or action.strip() == "":
-        action = "1"
-        console.print("[yellow]Автоматическая атака.[/yellow]")
-        time.sleep(0.3)
-    else:
-        action = action.strip()  # Удаляем лишние пробелы
-
-    enemy_killed = False
-
-
-    # Обработка действий
-    if action == "1":  # Обычная атака
-        player.attack(target=enemy)
-        if not enemy.is_alive():
-            enemy_killed = True
-    elif action == "2":  # Попытка убежать
-        if try_escape(player, enemy):
-            console.print("[green]Вам удалось сбежать![/green]")
-            time.sleep(2)
-            return True
+def fight_wiht_mob(ui=None):
+    new_mob = spawn_mob(hero_user.location)
+    if new_mob:
+        if ui:
+            ui.add_message(f"\n[bright_red]Начинается бой с '{new_mob.name}', {new_mob.level} уровня[/bright_red]")
+            ui.add_message(f"[bright_red]Здоровье врага: {new_mob.health_points}[/bright_red]")
+            ui.update_ui()
         else:
-            console.print("[red]Не удалось сбежать![/red]")
-            time.sleep(1)
-    elif action == "3":  # Лечение
-        if use_healing(player):
-            console.print("[green]Вы использовали зелье лечения![/green]")
-            time.sleep(1)
-        else:
-            console.print("[red]У вас нет зелий лечения![/red]")
-            time.sleep(1)
-    elif action == "4":  # Сильная атака
-        damage = strong_attack(player, enemy)
-        enemy.got_damage(damage=damage)
-        console.print(f"[yellow]Вы наносите сильный удар на {damage} урона![/yellow]")
-        time.sleep(1)
-        if not enemy.is_alive():
-            enemy_killed = True
+            console.print(f"\n[bright_red]Начинается бой с '{new_mob.name}', {new_mob.level} уровня[/bright_red]")
+            console.print(f"[bright_red]Здоровье врага: {new_mob.health_points}[/bright_red]")
 
-    # Если враг жив и игрок не лечился - враг атакует
-    if enemy.is_alive() and action != "3" and not enemy_killed:
-        enemy.attack(target=player)
-        time.sleep(1)
-
-    # Обработка убийства врага
-    if not enemy.is_alive():
-        player.gain_experience(target=enemy)
-        player.count_kill += 1
-        player.money += enemy.money
-        player.level_up(exp_base=player.exp_base)
-
-    return False
-
-
-def fight(*, player, enemy, ui=None):
-    """Модифицированная функция боя с новым интерфейсом"""
-    while True:  # Основной цикл боя
-        display_battle_interface(player, enemy, ui)
-        console.print(f"[bold red]Начинается бой с {enemy.name}![/bold red]")
-        time.sleep(1.5)
-
-        while player.is_alive() and enemy.is_alive():
-            escaped = fight_turn(player, enemy, ui)
-            if escaped:
-                return True
+        escaped = fight(player=hero_user, enemy=new_mob, ui=ui)
+        if escaped:
+            return
 
         # Обработка результатов боя
-        if not enemy.is_alive():
-            display_battle_interface(player, enemy, ui)
-            console.print(f"[bold green]Вы победили {enemy.name}![/bold green]")
-            console.print(f"[yellow3]Получено: {enemy.money} монет![/yellow3]")
-
-            # Показываем добычу
-            if enemy.inventory:
-                loot_text = Text()
-                loot_text.append("Полученная добыча:\n", style="bold")
-                for loot in enemy.inventory:
-                    if isinstance(loot, StackableItem):
-                        loot_text.append(f"- {loot.name} (x{loot.quantity})\n", style="green")
-                    else:
-                        loot_text.append(f"- {loot.name}\n", style="green")
-                console.print(Panel(loot_text, title="Добыча", border_style="green"))
-
-            # Панель действий после боя
-            actions_text = Text()
-            actions_text.append("Действия после боя:\n", style="bold underline")
-            actions_text.append("[Enter] или [Б] - Начать новый бой\n")
-            #actions_text.append("[Б] - Начать новый бой\n")
-            actions_text.append("[В] - Выйти из режима боя\n")
-            console.print(Panel(actions_text, title="Выберите действие", border_style="blue"))
-
-            # Ожидаем ввода пользователя
-            while True:
-                if 'msvcrt' in sys.modules:  # Windows
-                    if msvcrt.kbhit():
-                        key = msvcrt.getch()
-                        try:
-                            key = key.decode('cp866').lower()  # Используем кодировку cp866 для Windows
-                        except UnicodeDecodeError:
-                            continue
-
-                        if key in ('\r', 'б'):
-                            return False  # Начать новый бой
-                        elif key == 'в':
-                            return True  # Выйти из боя
-                else:  # Unix
-                    import select
-                    if select.select([sys.stdin], [], [], 0)[0]:
-                        key = sys.stdin.readline().strip().lower()
-                        if key in ('', 'б'):
-                            return False
-                        elif key == 'в':
-                            return True
-                time.sleep(0.1)
-
-        elif not player.is_alive():
-            return True
-
-
-def fight_with_mob(ui=None):
-    while True:  # Цикл для повторных боев
-        new_mob = spawn_mob(hero_user.location)
-        if new_mob:
+        if not new_mob.is_alive():
+            hero_user.money += new_mob.money
             if ui:
-                ui.add_message(f"\n[bright_red]Начинается бой с '{new_mob.name}', {new_mob.level} уровня[/bright_red]")
-                ui.add_message(f"[bright_red]Здоровье врага: {new_mob.health_points}[/bright_red]")
-                ui.update_ui()
+                ui.add_message(f"[yellow3]{hero_user.name} получает: {new_mob.money} монет![/yellow3]")
             else:
-                console.print(f"\n[bright_red]Начинается бой с '{new_mob.name}', {new_mob.level} уровня[/bright_red]")
-                console.print(f"[bright_red]Здоровье врага: {new_mob.health_points}[/bright_red]")
+                console.print(f"[yellow3]{hero_user.name} получает: {new_mob.money} монет![/yellow3]")
 
-            should_exit = fight(player=hero_user, enemy=new_mob, ui=ui)
-            if should_exit:
-                break
-
-            # Обработка результатов боя
-            if not new_mob.is_alive():
-                hero_user.money += new_mob.money
-                if ui:
-                    ui.add_message(f"[yellow3]{hero_user.name} получает: {new_mob.money} монет![/yellow3]")
+            for loot in new_mob.inventory:
+                if isinstance(loot, StackableItem):
+                    hero_user.add_item(item=loot)
+                    if ui:
+                        ui.add_message(f"[yellow3]{hero_user.name} получает: '{loot.name}'[/yellow3]")
+                    else:
+                        console.print(f"[yellow3]{hero_user.name} получает: '{loot.name}'[/yellow3]")
                 else:
-                    console.print(f"[yellow3]{hero_user.name} получает: {new_mob.money} монет![/yellow3]")
-
-                for loot in new_mob.inventory:
-                    if isinstance(loot, StackableItem):
-                        hero_user.add_item(item=loot)
-                        if ui:
-                            ui.add_message(f"[yellow3]{hero_user.name} получает: '{loot.name}'[/yellow3]")
-                        else:
-                            console.print(f"[yellow3]{hero_user.name} получает: '{loot.name}'[/yellow3]")
+                    hero_user.inventory.append(loot)
+                    if ui:
+                        ui.add_message(f"[yellow3]{hero_user.name} получает: '{loot}'[/yellow3]")
                     else:
-                        hero_user.inventory.append(loot)
-                        if ui:
-                            ui.add_message(f"[yellow3]{hero_user.name} получает: '{loot}'[/yellow3]")
-                        else:
-                            console.print(f"[yellow3]{hero_user.name} получает: '{loot}'[/yellow3]")
+                        console.print(f"[yellow3]{hero_user.name} получает: '{loot}'[/yellow3]")
+    else:
+        if ui:
+            ui.add_message("[red]Не удалось создать монстра.[/red]")
         else:
-            if ui:
-                ui.add_message("[red]Не удалось создать монстра.[/red]")
-            else:
-                console.print("[red]Не удалось создать монстра.[/red]")
-            break
+            console.print("[red]Не удалось создать монстра.[/red]")
+
 
 
 def generate_inventory(item_database: list, allowed_item_ids: list, max_item=5, mob_name: str = None):
@@ -1784,104 +1119,84 @@ def generate_inventory(item_database: list, allowed_item_ids: list, max_item=5, 
     return inventory
 
 # Метод торговли
-def trade_with_merchant(hero, merchant):
-    """Основной цикл торговли с новым интерфейсом"""
+def trade_with_merchant(character: Character, merchant: Merchant):
     pearl_quest_data = next((q for q in quest_database if q["id"] == 1), None)
-    last_message = ""
 
     while True:
-        show_trade_interface(hero, merchant)
+        console.print("\n[bold]Меню торговли:[/bold]")
+        console.print(f"Ваши деньги: {character.money} монет")
 
-        if last_message:
-            console.print(f"\n[bold]{last_message}[/bold]")
-            last_message = ""
-            input("Нажмите Enter чтобы продолжить...")
-            continue
+        # Показываем активные квесты от этого торговца
+        merchant_quests = [q for q in character.active_quests if q.giver == "Торговец"]
+        for quest in merchant_quests:
+            console.print(f"\n[bold]Активный квест:[/bold] {quest}")
 
-        action = input("\nВведите команду: ").strip().lower()
+        merchant.show_items()
+        character.show_character_and_inventory()
+
+        action = input("\nВведите 'купить [номер]' или 'к [номер]' для покупки\n"
+                       "Введите 'продать [номер]' или 'п [номер]' для продажи\n"
+                       "Введите 'квест' чтобы получить квест от торговца\n"
+                       "Введите 'сдать [номер]' чтобы сдать квест\n"
+                       "Для выхода 'выйти' или 'в': ").strip().lower()
 
         if action.startswith(('купить ', 'к ')):
             try:
-                item_index = int(action.split()[1]) - 1
-                if 0 <= item_index < len(merchant.items):
-                    item = merchant.items[item_index]
-                    if hero.money >= item.stock_price:
-                        hero.money -= item.stock_price
-                        new_item = deepcopy(item)
-                        if hero.add_item(new_item):
-                            last_message = f"Вы купили: {item.name} за {item.stock_price} монет"
-                        else:
-                            hero.money += item.stock_price
-                            last_message = "Не удалось добавить предмет в инвентарь!"
-                    else:
-                        last_message = "Недостаточно денег!"
-                else:
-                    last_message = "Неверный номер товара!"
+                parts = action.split()
+                item_index = int(parts[1]) - 1
+                merchant.buy_item(character, item_index)
             except (ValueError, IndexError):
-                last_message = "Используйте: 'купить [номер]'"
-
-        elif action.startswith(('продать ', 'п ')):
+                console.print("[red]Неверный формат команды. Используйте 'купить [номер]'[/red]")
+        elif action.startswith('сдать '):
             try:
-                item_index = int(action.split()[1]) - 1
-                if 0 <= item_index < len(hero.inventory):
-                    item = hero.inventory[item_index]
-                    sell_price = item.stock_price // 2
-
-                    if isinstance(item, StackableItem):
-                        max_sell = item.quantity
-                        console.print(f"У вас есть {max_sell} шт. {item.name}")
-                        try:
-                            sell_count = int(input(f"Сколько хотите продать? (1-{max_sell}): "))
-                            if 1 <= sell_count <= max_sell:
-                                hero.money += sell_price * sell_count
-                                if sell_count == max_sell:
-                                    hero.inventory.pop(item_index)
-                                else:
-                                    item.quantity -= sell_count
-                                last_message = f"Продано {sell_count} шт. {item.name} за {sell_price * sell_count} монет"
-                            else:
-                                last_message = "Неверное количество!"
-                        except ValueError:
-                            last_message = "Введите число!"
-                    else:
-                        hero.money += sell_price
-                        hero.inventory.pop(item_index)
-                        last_message = f"Вы продали: {item.name} за {sell_price} монет"
-                else:
-                    last_message = "Неверный номер предмета!"
-            except (ValueError, IndexError):
-                last_message = "Используйте: 'продать [номер]'"
-
-        elif action.startswith(('сдать ', 'с ')):
-            try:
-                merchant_quests = [q for q in hero.active_quests if q.giver == "Торговец"]
                 quest_num = int(action.split()[1]) - 1
                 if 0 <= quest_num < len(merchant_quests):
                     quest = merchant_quests[quest_num]
-                    if hero.is_quest_ready_to_complete(quest.id):
-                        hero.complete_quest(quest)
-                        last_message = f"Квест '{quest.name}' завершен!"
+                    if character.is_quest_ready_to_complete(quest.id):
+                        character.complete_quest(quest)
                     else:
-                        last_message = f"Не выполнены условия квеста! ({quest.current_amount}/{quest.target_amount})"
+                        console.print("[red]У вас недостаточно предметов для сдачи этого квеста![/red]")
                 else:
-                    last_message = "Неверный номер квеста!"
+                    console.print("[red]Неверный номер квеста[/red]")
             except (ValueError, IndexError):
-                last_message = "Используйте: 'сдать [номер]'"
-
-        elif action in ["квест", "кв"]:
+                console.print("[red]Используйте: 'сдать [номер]'[/red]")
+        elif action.startswith(('продать ', 'п ')):
+            try:
+                parts = action.split()
+                item_index = int(parts[1]) - 1
+                merchant.sell_item(character, item_index)
+            except (ValueError, IndexError):
+                console.print("[red]Неверный формат команды. Используйте 'продать [номер]'[/red]")
+        elif action == "квест":
             if pearl_quest_data:
-                if hero.add_quest(pearl_quest_data):
-                    last_message = f"Получен квест: '{pearl_quest_data['name']}'"
-                else:
-                    last_message = "Не удалось получить квест"
+                character.add_quest(pearl_quest_data)
             else:
-                last_message = "Торговец сейчас не предлагает квестов"
+                console.print("[red]Торговец сейчас не предлагает квестов[/red]")
+        elif action.startswith('сдать'):
+            try:
+                quest_num = int(action.split()[1]) - 1
+                if 0 <= quest_num < len(merchant_quests):
+                    quest = merchant_quests[quest_num]
+                    quest_data = next((q for q in quest_database if q["id"] == quest.id), None)
 
-        elif action in ["выход", "в"]:
+                    if quest_data and quest_data.get("auto_complete", False):
+                        console.print("[yellow]Этот квест завершается автоматически при выполнении условий[/yellow]")
+                    else:
+                        if character.is_quest_ready_to_complete(quest.id):
+                            character.complete_quest(quest)
+                        else:
+                            console.print(
+                                f"[red]Не выполнены условия квеста! ({quest.current_amount}/{quest.target_amount})[/red]")
+                else:
+                    console.print("[red]Неверный номер квеста[/red]")
+            except (ValueError, IndexError):
+                console.print("[red]Используйте: 'сдать [номер]'[/red]")
+
+        elif action in ["выйти", "в"]:
             break
-
         else:
-            last_message = "Неверная команда!"
+            console.print("[red]Неверная команда.[/red]")
+
 
 #Функция перемещения персонажа
 def move_character(ui=None):
@@ -2010,43 +1325,12 @@ def convert_old_save(old_save: dict) -> dict:
 
 
 def save_in_file():
-    """Сохраняет игру с красивым уведомлением"""
-    try:
-        if not os.path.isdir("save"):
-            os.mkdir("save")
-
-        with open(file="save\\save.json", mode="a", encoding="utf-8") as file:
-            new_dict_for_save = hero_user.get_all_params_for_save()
-            json.dump(new_dict_for_save, file, indent=4)
-            file.write("₽")  # Разделитель сохранений
-
-        # Создаем красивую панель уведомления
-        success_panel = Panel(
-            Text("Сохранение успешно завершено!\n", justify="center" ) + #style="white"
-            Text(f"Герой: {hero_user.name}\n") +
-            Text(f"Уровень: {hero_user.level}\n") +
-            Text(f"Локация: {hero_user.location.name}\n") +
-            Text(f"Время сохранения: {datetime.now().strftime('%d.%m.%Y %H:%M')}"),
-            title="✓ Сохранение игры",
-            border_style="gold1",
-            width=60
-        )
-
-        clear_screen()
-        console.print(success_panel)
-        console.print("\n[dim]Нажмите Enter чтобы продолжить...[/dim]")
-        input()  # Ждём нажатия Enter
-
-    except Exception as e:
-        error_panel = Panel(
-            Text(f"Ошибка сохранения!\n{str(e)}", style="bold red"),
-            title="Ошибка",
-            border_style="red",
-            width=60
-        )
-        console.print(error_panel)
-        console.print("\n[dim]Нажмите Enter чтобы продолжить...[/dim]")
-        input()  # Ждём нажатия Enter
+    if not os.path.isdir("save"):
+        os.mkdir("save")
+    with open(file="save/save.json", mode="a", encoding="utf-8") as file:
+        new_dict_for_save = hero_user.get_all_params_for_save()
+        json.dump(new_dict_for_save, file, indent=4)
+        file.write("₽")  # Добавляем разделитель перед новым сохранением
 
 
 def get_list_all_saves():
@@ -2264,24 +1548,33 @@ def delete_all_saves():
     else:
         console.print("[yellow3]Удаление всех сохранений отменено.[/yellow3]")
 
+
+def get_player_command(hero):
+    """Отображает интерфейс и получает команду от игрока"""
+    display_interface(hero)
+    return input("\nВведите команду: ").strip().lower()
+
 #Здесь функция игры
 def game() -> None:
     while hero_user.is_alive():
         command = get_player_command(hero_user)  # Получаем команду с новым интерфейсом
 
         if command in ["бой", "б"] and hero_user.location.zone_type == "combat":
-            fight_with_mob()
+            fight_wiht_mob()
         elif command in ["квесты", "кв"]:
             hero_user.show_quests()
         elif command in ["торговец", "т"] and hero_user.location.zone_type == "peaceful":
-            merchant_items = [item_database[0], item_database[1], item_database[4]]
+            merchant_items = [item_database[0], item_database[1], item_database[3]]
             merchant = Merchant(name="Торговец", items=merchant_items)
             trade_with_merchant(hero_user, merchant)
         elif command in ["перемещение", "п"]:
             move_character()
-        elif command in ["сохранить", "с"]:
-            save_in_file()  # Теперь с красивым уведомлением. После нажатия Enter игра автоматически продолжается
 
+        elif command in ["сохранить", "с"]:
+            save_in_file()
+            console.print(f"[yellow3]--------------------------------------------------\n"
+                          f"Успешно сохранено\n"
+                          f"--------------------------------------------------[/yellow3]\n")
         elif command in ["выход", "в"]:
             confirmation = input(
                 "Вы уверены, что хотите выйти? Весь несохраненный прогресс будет утерян! (да/нет):").strip().lower()
@@ -2293,27 +1586,136 @@ def game() -> None:
                 continue
 
         elif command in ["герой", "г"]:
-            character_menu(hero_user)
-    print(f"Имя Вашего героя: '{hero_user.name}', Уровень: {hero_user.level}\n"f"Ждем Вашего возвращения!!!")
+            hero_user.show_character_and_inventory()  # Вызов функции для показа характеристик и инвентаря
+            while True:  # Цикл для работы с инвентарем
+                hero_user.show_character_and_inventory()  # Вызов функции для показа характеристик и инвентаря
+                command_hero_inventory = input(f"--------------------------------------------------\n"
+                                               f"Введите 'ПРЕДМЕТ' или 'П' чтобы взаимодействовать\n"
+                                               f"Введите 'СНЯТЬ' или 'С' для снятия предмета\n"
+                                               f"Введите 'кинуть' или 'к' чтобы выбросить предмет\n"
+                                               f"Введите 'выход' или 'в' чтобы закрыть инвентарь\n"
+                                               f"--------------------------------------------------\n"
+                                               )
+                command_hero_inventory = command_hero_inventory.strip().lower()
+                if command_hero_inventory in ['предмет', 'п']:
+                    input_number_item = input(f"Введите номер ячейки чтобы использовать предмет: ")
+                    if input_number_item == "0":
+                        print("Введите корректное значение\nИли инвентарь пуст")
+                        continue
+                    try:
+                        hero_user.use_item(number_item=int(input_number_item) - 1)
+                    except IndexError:
+                        print('Ячейка инвентаря пуста!')
+                    except Exception as e:
+                        print(f"Ошибка: {str(e)}")
+                elif command_hero_inventory in ['снять', 'с']:
+                    slot_number = input("Введите номер ячейки (1-6) для снятия предмета: ")
+                    try:
+                        slot_index = int(slot_number) - 1
+                        slot_names = list(hero_user.equipment.keys())
+                        if 0 <= slot_index < len(slot_names):
+                            slot_name = slot_names[slot_index]
+                            hero_user.remove_item(slot=slot_name)
+                        else:
+                            console.print("[red]Ошибка: Неверный номер слота.[/red]")
+                    except ValueError:
+                        console.print("[red]Ошибка: Пожалуйста, введите корректный номер.[/red]")
 
+                elif command_hero_inventory in ['кинуть', 'к']:
+                    input_number_item = input(f"Введите номер ячейки чтобы выбросить предмет: ")
+                    if input_number_item == "0":
+                        print("Введите корректное значение\nИли инвентарь пуст")
+                        continue
+                    try:
+                        hero_user.discard_item(number_item=int(input_number_item) - 1)
+                    except IndexError:
+                        print('Ячейка инвентаря пуста!')
+                    except Exception as e:
+                        print(f"Ошибка: {str(e)}")
+                elif command_hero_inventory in ['выход', 'в']:
+                    print("Вы вышли из инвентаря.")
+                    break  # Выход из цикла инвентаря
+                else:
+                    massage_invalid_command()  # Обработка неверной команды
+
+    print(f"Имя Вашего героя: '{hero_user.name}', Уровень: {hero_user.level}\n"
+          f"Ждем Вашего возвращения!!!"
+          )
 #Здесь конец функции игры
 
-# Основной блок игры
+
+
+
+#Основной блок игры
+
 console.print(f"Добро пожаловать в игру\n\n[red]--- Adventures of Heroes ---\n[/red]")
 
-while True:
-    menu_command = get_main_menu_command()
+menu = ""
+while menu not in ["выход", "в"]:
+    menu = input(
+        f"-----------Меню------------\n"
+        f"Введите команду\n"
+        f"'СТАРТ' или 'C' чтобы начать новую игру\n"
+        f"'ЗАГРУЗИТЬ' или 'З' чтобы загрузить игру\n"
+        f"'УДАЛИТЬ' или 'У' чтобы удалить сохранение\n"  
+        f"'УДАЛИТЬ ВСЕ' или 'УВ' чтобы удалить все сохранения\n"
+        f"'ВЫХОД' или 'В' для выхода\n"
+        f"Поле ввода: "
+    ).strip().lower()  # Приводим ввод к нижнему регистру и убираем пробелы
 
-    # В основном игровом цикле:
-    if menu_command == "start":
-        hero_user = character_creation_flow()
-        game()  # Запускаем игру с созданным персонажем
+    if menu in ["старт", "с"]:
 
-    elif menu_command == "load":
-        # Код загрузки игры
-        hero_user = download(database=item_database)
-        if hero_user:
+
+        hero_user = Human(level=1, name=input(
+            f"Начало новой игры!\n"
+            f"Создание персонажа\n"
+            f"Введите 'ВЫХОД' или 'В' если хотите выйти\n"
+            f"Введите имя героя: "
+        ).strip())  # Убираем пробелы из имени героя
+        """Определения квестов"""
+        if not hasattr(hero_user, 'active_quests'):
+            hero_user.active_quests = []
+        if not hasattr(hero_user, 'completed_quests'):
+            hero_user.completed_quests = []
+
+        if hero_user.name.lower() in ["выход", "в"]:
+            print("Выход из игры.")
+            break
+        elif hero_user.name == "":
+            print(f"--------------------------------\nПоле не может быть пустым")
+            continue
+        # Создаем экземпляр локации "Храм"
+        temple_location = Location(name="Храм", description="Древний храм, хранящий множество секретов.", danger_level=4, zone_type="combat", id_loc=4)
+        # Устанавливаем локацию героя на "Храм"
+        hero_user.set_location(temple_location)
+
+        console.print(f"Имя Вашего героя: {hero_user.name}\nПродолжить?")
+        answer_user = input(f"'ДА','Д' или нажмите 'Enter' чтобы продолжить с этим именем.\n"
+                            f"'НЕТ','Н' чтобы изменить.\n"
+                            f"Поле ввода: ").strip().lower()  # Убираем пробелы и приводим к нижнему регистру
+
+        if answer_user in ["", "да", "д"]:
+            print(
+                f"Вы только что создали героя. \nВы находитесь в локации {hero_user.location.name} \nПопробуйте атаковать кого-нибудь")
             hero_user.class_character = hero_user.get_class_hero()
+            # Функция игры | новая игра
+            game()
+
+        elif answer_user in ["нет", "н"]:
+            print(f"----------------------------------\nПопробуйте заново...\n----------------------------------")
+            continue
+        else:
+            massage_invalid_command()
+            continue
+
+    elif menu in ["загрузить", "з"]:
+        #try:
+            hero_user = download(database=item_database)
+            if hero_user is None:
+                print("Не удалось загрузить героя. Пожалуйста, попробуйте снова.")
+            else:
+                hero_user.class_character = hero_user.get_class_hero()
+
             console.print(f"[yellow3]--------------------------------------------------\n"
                           f"Успешно загружено\n"
                           f"--------------------------------------------------[/yellow3]\n")
@@ -2321,10 +1723,16 @@ while True:
         #except Exception as e:  # Ловим все исключения
         #    console.print(f"[red]-----------   КАКАЯ-ТО ОШИБКА   ------------------\n""--------------------------------------------------\n""Откройте папку с игрой.\n""Рядом с файлом 'adventures_of_heroes._._.exe'\n""должна быть папка 'save'\n""В папке 'save' должен быть файл 'save.json' \n""Или файл с сохранением был испорчен\n"f"Ошибка: {str(e)}\n""--------------------------------------------------[/red]") # Выводим текст ошибки для отладки
 
-    elif menu_command == "delete":
-        prompt_for_save_deletion()
-    elif menu_command == "delete_all":
+
+    elif menu in ["удалить", "у"]:  # Обработка новой команды
+        prompt_for_save_deletion()  # Запрос на удаление сохранения
+
+    elif menu in ["удалить все", "ув"]:  # Обработка команды для удаления всех сохранений
         delete_all_saves()
-    elif menu_command == "exit":
-        console.print(f"[bright_cyan]-----------------\n---Конец игры----\n-----------------[/bright_cyan]")
+
+    elif menu in ["выход", "в"]:
+        print(f"-----------------\n---Конец игры----\n-----------------")
         break
+    else:
+        massage_invalid_command()
+        continue
