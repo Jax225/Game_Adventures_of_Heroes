@@ -15,7 +15,7 @@ try:
     import msvcrt  # Для Windows
 except ImportError:
     import select  # Для Unix-систем
-#импорты из соседних файлов
+# импорты из соседних файлов
 # main.py
 from game.character import Character, Human, Warrior, Mage, Mob
 from game.items import Item, Equipment, StackableItem
@@ -201,6 +201,7 @@ class GameUI:
         )
 
         # Левая панель - основная информация
+        #a_round = '%.1f' % round((self.experience / (self.exp_base * 2) * 100), 2)
         stats = (
             f"Здоровье: {self.hero.health_points}/{self.hero.max_health_points()}\n"
             f"Атака: {self.hero.attack_power}\n"
@@ -498,7 +499,9 @@ def get_exp_bar(current, max_exp, width=20):
     exp_bar = (
             f"[cyan]{'█' * filled}[/cyan]" +
             f"[white]{'░' * empty}[/white] " +
-            f"{current}/{max_exp}"
+            #f"{current}/{max_exp}"
+            f"\n"
+            f"[blue] {round(current / (max_exp * 2) * 100, 2)} %[/blue]"
     )
     return exp_bar
 
@@ -557,6 +560,8 @@ def show_character_interface(hero):
     exp_line.append(Text.from_markup(get_exp_bar(hero.experience, hero.exp_base * 2)))
     status_text.append(exp_line)
     status_text.append("\n\n")
+
+
 
     status_text.append(f"Атака: {hero.attack_power}\n")
     status_text.append(f"Защита: {hero.defence}\n")
@@ -869,39 +874,6 @@ def get_player_command(hero):
 
     return input().strip().lower()
 
-def display_interface(hero):
-    """Отображает игровой интерфейс с панелями бок о бок"""
-    os.system('cls' if os.name == 'nt' else 'clear')
-
-    # Левая панель - статус героя
-    status = Text()
-    status.append(f"Имя: {hero.name}\n", style="bold")
-    status.append(f"Уровень: {hero.level}\n")
-    status.append(f"Здоровье: {hero.health_points}/{hero.max_health_points()}\n")
-    status.append(f"Опыт: {hero.experience}/{hero.exp_base * 2}\n")
-    status.append(f"Локация: {hero.location.name}\n")
-    status.append(f"Деньги: {hero.money} монет")
-    status_panel = Panel(status, title="Статус героя", border_style="blue", width=38)
-
-    # Правая панель - команды
-    commands = Text()
-    commands.append("Доступные команды:\n", style="bold underline")
-    commands.append("[Г]ерой - характеристики и инвентарь\n")
-    commands.append("[С]охр - сохранить игру\n")
-    commands.append("[П]еремещ - сменить локацию\n")
-
-    if hero.location.zone_type == "combat":
-        commands.append("[Б]ой - начать бой\n")
-    else:
-        commands.append("[Т]орговец - торговля\n")
-
-    commands.append("[КВ]есты - просмотр квестов\n")
-    commands.append("[В]ыход - выйти из игры")
-    commands_panel = Panel(commands, title="Команды", border_style="green", width=38)
-
-    # Выводим панели рядом
-    console.print(Columns([commands_panel, status_panel ], expand=True))
-
 def get_health_color(hero):
     """Возвращает цвет для здоровья в зависимости от процента"""
     percent = hero.health_points / hero.max_health_points()
@@ -918,7 +890,7 @@ def get_status_bar(hero):
     status_text.append(f"{hero.health_points}/{hero.max_health_points()}\n",
                       style=get_health_color(hero))
     status_text.append("Опыт: ", style="bold")
-    status_text.append(f"{hero.experience}/{hero.exp_base * 2}\n", style="yellow")
+    status_text.append(f"{round(hero.experience / (hero.exp_base * 2) * 100, 2)} % \n", style="blue")
     status_text.append("Локация: ", style="bold")
     status_text.append(f"{hero.location.name}\n", style="magenta")
     status_text.append("Деньги: ", style="bold")
@@ -1179,6 +1151,8 @@ def fight_turn(player, enemy, ui=None, action_manager=None):
         player.attack(target=enemy)
         if not enemy.is_alive():
             enemy_killed = True
+            player.gain_experience(target=enemy)  # Добавляем опыт
+            #player.count_kill += 1  # Увеличиваем количество убитых монстров
     elif action_type == "escape":
         if try_escape(player, enemy):
             console.print("[green]Вам удалось сбежать![/green]")
@@ -1201,6 +1175,8 @@ def fight_turn(player, enemy, ui=None, action_manager=None):
         time.sleep(1)
         if not enemy.is_alive():
             enemy_killed = True
+            player.gain_experience(target=enemy)  # Добавляем опыт
+            #player.count_kill += 1  # Увеличиваем количество убитых монстров
     else:
         console.print("[red]Неизвестное действие![/red]")
         time.sleep(1)
@@ -1227,20 +1203,8 @@ def fight(*, player, enemy, ui=None, action_manager=None):
 
         # Обработка результатов боя
         if not enemy.is_alive():
-            display_battle_interface(player, enemy, ui, action_manager)
-            console.print(f"[bold green]Вы победили {enemy.name}![/bold green]")
-            console.print(f"[yellow3]Получено: {enemy.money} монет![/yellow3]")
-
-            # Показываем добычу
-            if enemy.inventory:
-                loot_text = Text()
-                loot_text.append("Полученная добыча:\n", style="bold")
-                for loot in enemy.inventory:
-                    if isinstance(loot, StackableItem):
-                        loot_text.append(f"- {loot.name} (x{loot.quantity})\n", style="green")
-                    else:
-                        loot_text.append(f"- {loot.name}\n", style="green")
-                console.print(Panel(loot_text, title="Добыча", border_style="green"))
+            # Обрабатываем победу над монстром сразу после его смерти
+            process_mob_defeat(player, enemy, ui)
 
             # Панель действий после боя
             actions_text = Text()
@@ -1277,6 +1241,63 @@ def fight(*, player, enemy, ui=None, action_manager=None):
             return True
 
 
+def process_mob_defeat(hero: Character, mob: Character, ui=None):
+    """Обрабатывает победу над монстром: добавляет лут, опыт и деньги"""
+    try:
+        # Добавляем деньги
+        hero.money += mob.money
+        message = f"[yellow3]{hero.name} получает: {mob.money} монет![/yellow3]"
+
+        # Добавляем опыт
+        gained_exp = mob.max_health_points() * 4
+        hero.experience += gained_exp
+        message += f"\n[cyan]Получено опыта: {gained_exp}[/cyan]"
+
+        # Проверяем повышение уровня
+        if hero.experience >= hero.exp_base:
+            hero.level_up()
+            message += f"\n[bold green]Повышен уровень до {hero.level}![/bold green]"
+
+        # Добавляем предметы из инвентаря монстра
+        loot_messages = []
+        for loot in mob.inventory:
+            if isinstance(loot, StackableItem):
+                added = hero.add_item(deepcopy(loot))
+                if added:
+                    loot_messages.append(f"- {loot.name} (x{loot.quantity})")
+            else:
+                hero.inventory.append(deepcopy(loot))
+                loot_messages.append(f"- {loot.name}")
+
+        # Формируем сообщение о луте
+        if loot_messages:
+            message += "\n\n[green]Полученные предметы:[/green]\n" + "\n".join(loot_messages)
+
+        # Увеличиваем счетчик убитых монстров
+        hero.count_kill += 1
+
+        # Обновляем квесты
+        for quest in hero.active_quests:
+            if not quest.is_completed and quest.target_item_id:
+                for item in mob.inventory:
+                    if item.id_item == quest.target_item_id:
+                        quest.current_amount += item.quantity if isinstance(item, StackableItem) else 1
+
+        # Выводим сообщение
+        if ui:
+            ui.add_message(message)
+        else:
+            console.print(Panel(Text.from_markup(message), title="Победа!", border_style="green"))
+
+        return True
+    except Exception as e:
+        error_msg = f"[red]Ошибка при обработке победы: {str(e)}[/red]"
+        if ui:
+            ui.add_message(error_msg)
+        else:
+            console.print(error_msg)
+        return False
+
 
 def fight_with_mob(ui=None, action_manager=None):
     """Функция боя с мобом с поддержкой настраиваемой панели"""
@@ -1294,36 +1315,12 @@ def fight_with_mob(ui=None, action_manager=None):
             should_exit = fight(player=hero_user, enemy=new_mob, ui=ui, action_manager=action_manager)
             if should_exit:
                 break
-
-            # Обработка результатов боя
-            if not new_mob.is_alive():
-                hero_user.money += new_mob.money
-                if ui:
-                    ui.add_message(f"[yellow3]{hero_user.name} получает: {new_mob.money} монет![/yellow3]")
-                else:
-                    console.print(f"[yellow3]{hero_user.name} получает: {new_mob.money} монет![/yellow3]")
-
-                for loot in new_mob.inventory:
-                    if isinstance(loot, StackableItem):
-                        hero_user.add_item(item=loot)
-                        if ui:
-                            ui.add_message(f"[yellow3]{hero_user.name} получает: '{loot.name}'[/yellow3]")
-                        else:
-                            console.print(f"[yellow3]{hero_user.name} получает: '{loot.name}'[/yellow3]")
-                    else:
-                        hero_user.inventory.append(loot)
-                        if ui:
-                            ui.add_message(f"[yellow3]{hero_user.name} получает: '{loot}'[/yellow3]")
-                        else:
-                            console.print(f"[yellow3]{hero_user.name} получает: '{loot}'[/yellow3]")
         else:
             if ui:
                 ui.add_message("[red]Не удалось создать монстра.[/red]")
             else:
                 console.print("[red]Не удалось создать монстра.[/red]")
             break
-
-
 
 
 

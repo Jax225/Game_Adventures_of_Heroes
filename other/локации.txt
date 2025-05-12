@@ -1,0 +1,200 @@
+import time
+import random
+import json
+import os
+from copy import deepcopy
+from rich.console import Console
+
+# Разметка цветом
+console = Console()
+
+# Основные параметры классов
+
+class Location:
+    def __init__(self, name: str, description: str, can_attack: bool):
+        self.name = name
+        self.description = description
+        self.can_attack = can_attack
+
+    def __str__(self):
+        return f"{self.name}: {self.description}"
+
+class Character:
+    def __init__(self, name: str, level: int) -> None:
+        self.name = name
+        self.level = level
+        self.health_points = self.base_health_points * level
+        self.attack_power = self.base_attack_power * level
+        self.defence = self.base_defence * level
+        self.experience = 0
+        self.exp_base = 100
+        self.count_kill = 0
+        self.location = Location("Храм", "Вы находитесь в храме, где можно сражаться с монстрами.", True)
+        self.class_character = None
+        self.inventory = []
+        self.equipment = {
+            "Голова": None,
+            "Тело": None,
+            "Руки": None,
+            "Ноги": None,
+            "Оружие": None,
+            "Плащ": None,
+        }
+
+    # Остальные методы класса Character...
+
+    def move_to(self, new_location: Location):
+        self.location = new_location
+        console.print(f"[yellow3]Вы переместились в '{self.location.name}'[/yellow3]")
+
+# Определение локаций
+locations = {
+    "храм": Location("Храм", "Вы находитесь в храме, где можно сражаться с монстрами.", True),
+    "город": Location("Город", "Вы в городе, здесь есть торговец, но нельзя сражаться.", False),
+    "лес": Location("Лес", "Вы находитесь в лесу, здесь можно встретить диких животных.", True),
+    "болото": Location("Болото", "Вы находитесь на болоте, здесь опасно.", True),
+}
+
+# Принты для избавления от повторов
+def massage_invalid_command() -> str:
+    massage = (f"[dark_olive_green1]---------------------------------------------\n" +
+               f"Неверная команда. Попробуйте ввести другую...\n" +
+               f"---------------------------------------------[/dark_olive_green1]")
+    return console.print(massage)
+
+# Функция игры
+def game() -> None:
+    while hero_user.is_alive():
+        command = input(
+            f"-----------Действия игрока----------\n"
+            f"'БОЙ' или 'Б' для перехода к новому бою\n"
+            f"'ГЕРОЙ' или 'Г' чтобы посмотреть характеристики героя\n"
+            f"'ИНВЕНТАРЬ' или 'И' чтобы посмотреть содержимое инвентаря героя\n"
+            f"'ЛОКАЦИЯ' или 'Л' для перемещения между локациями\n"
+            f"'СОХРАНИТЬ' или 'С' для сохранения прогресса\n"
+            f"'ВЫХОД' или 'В' для выхода\n"
+            f"Введите слуедущую команду: \n"
+        )
+        command = command.strip().lower()
+        if command in ["бой", "б"]:
+            fight_wiht_mob()
+        elif command in ["сохранить", "с"]:
+            save_in_file()
+            console.print(f"[yellow3]--------------------------------------------------\n"
+                          f"Успешно сохранено\n"
+                          f"--------------------------------------------------[/yellow3]\n")
+        elif command in ["герой", "г"]:
+            console.print(hero_user.hero_stats())
+            input(f"--------------------------------\nнажмите 'Enter' чтобы продолжить..\n")
+        elif command in ["инвентарь", "и"]:
+            hero_user.hero_inventory
+            command_hero_inventory = input(f"--------------------------------------------------\n"
+                                           f"Введите 'ПРЕДМЕТ' или 'П' чтобы взаимодействовать:\n"
+                                           f"Или нажмите 'Enter' чтобы продолжить...\n"
+                                           f"--------------------------------------------------\n"
+                                           )
+
+            command_hero_inventory = command_hero_inventory.strip().lower()
+            if command_hero_inventory in ['предмет', 'п']:
+                input_number_item = input(f"Введите номер ячейки чтобы использовать предмет: ")
+                if input_number_item == "0":
+                    print("Введите корректное значение\n"
+                          "Или инвентарь пуст")
+                    continue
+                try:
+                    hero_user.use_item(number_item=int(input_number_item) - 1)
+                except IndexError:
+                    print('Ячейка инвентаря пуста!')
+                except:
+                    print("Введите корректное значение\n"
+                          "Или инвентарь пуст")
+            else:
+                massage_invalid_command()
+
+        elif command in ["выход", "в"]:
+            print("Выход из игры.")
+            break
+        elif command in ["локация", "л"]:
+            print("Доступные локации:")
+            for loc in locations.values():
+                print(f"- {loc.name}: {loc.description}")
+            location_choice = input("Введите название локации, в которую хотите переместиться: ").strip().lower()
+            if location_choice in locations:
+                if locations[location_choice].can_attack or hero_user.location.name == "Город":
+                    hero_user.move_to(locations[location_choice])
+                else:
+                    console.print("[red]Вы не можете атаковать в этой локации![/red]")
+            else:
+                console.print("[red]Неверная локация![/red]")
+        else:
+            massage_invalid_command()
+
+    print(f"Ваш результат:\n"
+          f"Имя Вашего героя: '{hero_user.name}', Уровень: {hero_user.level}\n"
+          f"Количество убитых врагов: {hero_user.count_kill}"
+          )
+
+# Основной блок игры
+console.print(f"Добро пожаловать в игру\n\n[red]--- Adventures of Heroes ---\n[/red]")
+
+menu = ""
+while menu != "выход" and menu != "в":
+    menu = input(
+        f"-----------Меню------------\n"
+        f"Введите команду\n"
+        f"'СТАРТ' или 'C' чтобы начать новую игру\n"
+        f"'ЗАГРУЗИТЬ' или 'З' чтобы загрузить игру\n"
+        f"'ВЫХОД' или 'В' для выхода\n"
+        f"Поле ввода: "
+    )
+    menu = menu.strip().lower()
+    if menu in ["старт", "с"]:
+        hero_user = Human(level=1, name=input(
+            f"Начало новой игры!\n"
+            f"Создание персонажа\n"
+            f"Введите 'ВЫХОД' или 'В' если хотите выйти\n"
+            f"Введите имя героя: "
+        ))
+        quickly_check = hero_user.name.lower().strip()
+        if quickly_check in ["выход", "в"]:
+            print("Выход из игры.")
+            break
+        elif quickly_check == "":
+            print(f"--------------------------------\nПоле не может быть пустым")
+            continue
+
+        console.print(f"Имя Вашего героя: {hero_user.name}\nПродолжить?")
+        answer_user = input(f"'ДА','Д' или нажмите 'Enter' чтобы продолжить с этим именем.\n"
+                            f"'НЕТ','Н' чтобы изменить.\n"
+                            f"Поле ввода: ")
+        answer_user = answer_user.lower().strip()
+
+        if answer_user in ["", "да", "д"]:
+            print(f"Вы только что создали героя.\nПопробуйте атаковать кого-нибудь")
+            hero_user.class_character = hero_user.get_class_hero()
+            # Функция игры | новая игра
+            game()
+        elif answer_user in ["нет", "н"]:
+            print(f"----------------------------------\nПопробуйте заново...\n----------------------------------")
+            continue
+        else:
+            massage_invalid_command()
+            continue
+
+    elif menu in ["загрузить", "з"]:
+        hero_user = download(database=item_database)
+        if hero_user:
+            hero_user.class_character = hero_user.get_class_hero()
+            console.print(f"[yellow3]--------------------------------------------------\n"
+                          f"Успешно загружено\n"
+                          f"--------------------------------------------------[/yellow3]\n")
+            game()
+
+    elif menu in ["выход", "в"]:
+        print(f"-----------------\n"
+              f"---Конец игры----\n"
+              f"-----------------")
+        break
+    else:
+        massage_invalid_command()
+        continue

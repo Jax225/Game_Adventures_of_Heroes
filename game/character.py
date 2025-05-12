@@ -18,6 +18,8 @@ from .quests import Quest
 from .quests import quest_database
 from .locations import Location
 
+MAX_INVENTORY_SIZE = 999999999 # инвентарь - пока бесконечность
+TURN_TIME = 3  # Время на ход в секундах
 
 #Разметка цветом
 console = Console()
@@ -118,20 +120,22 @@ class Character:
         self.health_points -= damage
 
     def gain_experience(self, *, target: "Character") -> None:
-        if not (target.is_alive()):
-            self.experience += target.max_health_points() * 4
+        if not target.is_alive():
+            gained_exp = target.max_health_points() * 4
+            self.experience += gained_exp
+            console.print(f"[bright_cyan]{self.name} получает {gained_exp} опыта![/bright_cyan]")
+            self.level_up()  # Убрали передачу параметра
 
-
-    def level_up(self, exp_base: int):
-        exp_base = exp_base * 2
-        if self.experience >= exp_base:
+    def level_up(self):  # Убрали параметр exp_base
+        if self.experience >= self.exp_base:
             self.level += 1
             self.health_points = self.base_health_points * self.level
             self.attack_power = self.base_attack_power * self.level
             self.defence = self.base_defence * self.level
-            self.exp_base = exp_base
-            self.experience = self.experience - exp_base
-            console.print(f"[bright_cyan]{self.name} получает опыт и повышает уровень до {self.level}[/bright_cyan]")
+            self.experience -= self.exp_base  # Вычитаем только после повышения уровня
+            self.exp_base = int(self.exp_base * 2)  # Увеличиваем exp_base для следующего уровня
+            console.print(f"[bright_cyan]{self.name} повышает уровень до {self.level}![/bright_cyan]")
+            console.print(f"[bright_cyan]Требуется опыта для следующего уровня: {self.exp_base}[/bright_cyan]")
 
     def attack(self, *, target: "Character") -> None:
         print(f"{self.name} атакует {target.name}")
@@ -140,11 +144,10 @@ class Character:
             print(f"{self.name}, HP={self.health_points} | {target.name}, HP={target.health_points}")
         else:
             print(f"{target.name} погибает!")
-            # Убрал gain_experience и level_up из этого метода, так как они теперь обрабатываются в fight()
+            self.gain_experience(target=target)  # Теперь gain_experience сам вызывает level_up
             self.count_kill += 1
             if isinstance(target, Mob):
                 self.money += target.money
-
 
     def max_health_points(self):
         return self.base_health_points * self.level

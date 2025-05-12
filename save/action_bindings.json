@@ -1,0 +1,20 @@
+{
+    "bindings": {
+        "1": "attack",
+        "2": "escape",
+        "3": "heal",
+        "4": "strong_attack",
+        "5": null,
+        "6": null,
+        "7": null,
+        "8": null,
+        "9": null,
+        "0": null
+    },
+    "available_actions": [
+        "attack",
+        "escape",
+        "heal",
+        "strong_attack"
+    ]
+}
