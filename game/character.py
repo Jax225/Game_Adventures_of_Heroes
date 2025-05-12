@@ -129,13 +129,12 @@ class Character:
     def level_up(self):  # Убрали параметр exp_base
         if self.experience >= self.exp_base:
             self.level += 1
-            self.health_points = self.base_health_points * self.level
+            self.health_points = self.max_health_points()  # Восстанавливаем здоровье до максимума
             self.attack_power = self.base_attack_power * self.level
             self.defence = self.base_defence * self.level
             self.experience -= self.exp_base  # Вычитаем только после повышения уровня
             self.exp_base = int(self.exp_base * 2)  # Увеличиваем exp_base для следующего уровня
             console.print(f"[bright_cyan]{self.name} повышает уровень до {self.level}![/bright_cyan]")
-            console.print(f"[bright_cyan]Требуется опыта для следующего уровня: {self.exp_base}[/bright_cyan]")
 
     def attack(self, *, target: "Character") -> None:
         print(f"{self.name} атакует {target.name}")
