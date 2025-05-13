@@ -17,6 +17,7 @@ from .utils import generate_inventory, clear_screen
 from .quests import Quest
 from .quests import quest_database
 from .locations import Location
+from .effects import Effect, EffectManager
 
 MAX_INVENTORY_SIZE = 999999999 # инвентарь - пока бесконечность
 TURN_TIME = 3  # Время на ход в секундах
@@ -48,6 +49,10 @@ class Character:
             "Плащ": None,
         }
         self.money = 0  # Новое поле для хранения денег
+        self.effect_manager = EffectManager()  # Добавляем менеджер эффектов
+        self.in_battle = False  # Добавляем флаг состояния боя
+        self.last_effects_update_time = time.time()  # Время последнего обновления эффектов
+        self.effects_update_interval = 1.0  # Интервал обновления эффектов в секундах
 
     def __str__(self):
         return f"Class: {self.get_class_hero()}. Name:'{self.name}', level: {self.level} HP: {self.health_points}, Money: {self.money}"
@@ -412,6 +417,25 @@ class Character:
             else:
                 equipment_data.append(None)
         return equipment_data
+
+    def update(self):
+        """Обновляет состояние персонажа (должен вызываться каждый кадр/ход)"""
+        current_time = time.time()
+        if current_time - self.last_effects_update_time >= self.effects_update_interval:
+            self.effect_manager.update_effects(self)  # Обновляем эффекты
+            self.last_effects_update_time = current_time  # Обновляем время последнего обновления
+
+    def apply_effect(self, effect: Effect) -> bool:
+        """Применяет эффект к персонажу"""
+        return self.effect_manager.add_effect(effect, self)
+
+    def remove_effect(self, effect_id: int) -> bool:
+        """Удаляет эффект у персонажа"""
+        return self.effect_manager.remove_effect(effect_id, self)
+
+    def has_effect(self, effect_id: int) -> bool:
+        """Проверяет, есть ли у персонажа указанный эффект"""
+        return self.effect_manager.has_effect(effect_id)
 
     def update_stats(self):
         self.attack_power = self.base_attack_power * self.level

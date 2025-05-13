@@ -471,6 +471,7 @@ def show_trade_interface(hero, merchant):
     actions_text.append("Доступные действия:\n", style="bold underline")
     actions_text.append("[К]упить [номер] - купить предмет у торговца\n")
     actions_text.append("[П]родать [номер] - продать предмет из инвентаря\n")
+    actions_text.append("[У]слуга [номер] - приобрести услугу\n")  # Новая строка
     actions_text.append("[КВ]ест - получить квест от торговца\n")
     actions_text.append("[С]дать [номер] - сдать квест\n")
     actions_text.append("[В]ыход - закончить торговлю\n")
@@ -501,7 +502,7 @@ def get_exp_bar(current, max_exp, width=20):
             f"[white]{'░' * empty}[/white] " +
             #f"{current}/{max_exp}"
             f"\n"
-            f"[blue] {round(current / (max_exp * 2) * 100, 2)} %[/blue]"
+            f"[blue] {round(current / (max_exp) * 100, 2)} %[/blue]"
     )
     return exp_bar
 
@@ -886,6 +887,12 @@ def get_status_bar(hero):
     status_text = Text()
     status_text.append(f"Имя: {hero.name}\n", style="bold")
     status_text.append(f"Уровень: {hero.level}\n", style="cyan")
+
+    # Добавляем строку с активными эффектами
+    if hero.effect_manager.active_effects:
+        effects_str = ", ".join([f"{e.name}" for e in hero.effect_manager.active_effects.values()])
+        status_text.append(f"Эффекты: {effects_str}\n", style="magenta")
+
     status_text.append("Здоровье: ", style="bold")
     status_text.append(f"{hero.health_points}/{hero.max_health_points()}\n",
                       style=get_health_color(hero))
@@ -940,6 +947,32 @@ class Merchant:
     def __init__(self, name: str, items: list) -> None:
         self.name = name
         self.items = items  # Список предметов, которые продает торговец
+        self.services = {  # Новый словарь услуг
+            1: ("Долгая регенерация", 5)  # Название и цена
+        }
+
+    def show_services(self):
+        """Показывает доступные услуги"""
+        console.print("\nДоступные услуги:")
+        for idx, (name, price) in self.services.items():
+            console.print(f"{idx}. {name} - {price} монет")
+
+    def buy_service(self, character: Character, service_id: int):
+        """Покупка услуги"""
+        if service_id in self.services:
+            name, price = self.services[service_id]
+            if character.money >= price:
+                character.money -= price
+
+                # Применяем соответствующий эффект
+                if service_id == 1:  # Долгая регенерация
+                    from game.effects import LONG_REGENERATION
+                    character.apply_effect(LONG_REGENERATION)
+                    console.print(f"[green]Вы получили эффект '{name}' на 20 минут![/green]")
+            else:
+                console.print("[red]Недостаточно денег![/red]")
+        else:
+            console.print("[red]Неверный номер услуги.[/red]")
 
     def show_items(self):
         console.print(f"{self.name} предлагает следующие товары:")
@@ -1118,6 +1151,15 @@ def get_input_with_timeout(prompt, timeout):
 
 
 def fight_turn(player, enemy, ui=None, action_manager=None):
+    # Обновляем эффекты перед ходом
+    player.effect_manager.update_effects(player)
+    enemy.effect_manager.update_effects(enemy)
+
+    # Проверяем, оглушен ли игрок
+    if any(effect.is_stunned for effect in player.effect_manager.active_effects.values()):
+        console.print("[yellow]Вы оглушены и пропускаете ход![/yellow]")
+        time.sleep(1)
+        return Fals
     """Один ход боя с новым интерфейсом"""
     display_battle_interface(player, enemy, ui, action_manager)
 
@@ -1190,56 +1232,92 @@ def fight_turn(player, enemy, ui=None, action_manager=None):
 
 
 def fight(*, player, enemy, ui=None, action_manager=None):
-    """Модифицированная функция боя с поддержкой настраиваемой панели действий"""
-    while True:  # Основной цикл боя
-        display_battle_interface(player, enemy, ui, action_manager)
-        console.print(f"[bold red]Начинается бой с {enemy.name}![/bold red]")
-        time.sleep(1.5)
+    """Модифицированная функция боя с обработкой ошибок"""
+    player.in_battle = True
+    enemy.in_battle = True
 
-        while player.is_alive() and enemy.is_alive():
-            escaped = fight_turn(player, enemy, ui, action_manager)
-            if escaped:
-                return True
+    try:
+        while True:
+            try:
+                display_battle_interface(player, enemy, ui, action_manager)
+                console.print(f"[bold red]Начинается бой с {enemy.name}![/bold red]")
+                time.sleep(1.5)
 
-        # Обработка результатов боя
-        if not enemy.is_alive():
-            # Обрабатываем победу над монстром сразу после его смерти
-            process_mob_defeat(player, enemy, ui)
-
-            # Панель действий после боя
-            actions_text = Text()
-            actions_text.append("Действия после боя:\n", style="bold underline")
-            actions_text.append("[Enter] или [Б] - Начать новый бой\n")
-            actions_text.append("[В] - Выйти из режима боя\n")
-            console.print(Panel(actions_text, title="Выберите действие", border_style="blue"))
-
-            # Ожидаем ввода пользователя
-            while True:
-                if 'msvcrt' in sys.modules:  # Windows
-                    if msvcrt.kbhit():
-                        key = msvcrt.getch()
-                        try:
-                            key = key.decode('cp866').lower()
-                        except UnicodeDecodeError:
-                            continue
-
-                        if key in ('\r', 'б'):
-                            return False  # Начать новый бой
-                        elif key == 'в':
-                            return True  # Выйти из боя
-                else:  # Unix
-                    import select
-                    if select.select([sys.stdin], [], [], 0)[0]:
-                        key = sys.stdin.readline().strip().lower()
-                        if key in ('', 'б'):
-                            return False
-                        elif key == 'в':
+                while player.is_alive() and enemy.is_alive():
+                    try:
+                        escaped = fight_turn(player, enemy, ui, action_manager)
+                        if escaped:
                             return True
-                time.sleep(0.1)
+                    except Exception as turn_error:
+                        console.print(f"[red]Ошибка в ходе боя: {str(turn_error)}[/red]")
+                        import traceback
+                        traceback.print_exc()
+                        # Продолжаем бой несмотря на ошибку
+                        time.sleep(2)
+                        continue
 
-        elif not player.is_alive():
-            return True
+                # Обработка результатов боя
+                if not enemy.is_alive():
+                    try:
+                        process_mob_defeat(player, enemy, ui)
+                    except Exception as defeat_error:
+                        console.print(f"[red]Ошибка при обработке победы: {str(defeat_error)}[/red]")
+                        # Все равно даем награду, но упрощенную
+                        player.money += enemy.money
+                        player.count_kill += 1
 
+                # Панель действий после боя
+                actions_text = Text()
+                actions_text.append("Действия после боя:\n", style="bold underline")
+                actions_text.append("[Enter] или [Б] - Начать новый бой\n")
+                actions_text.append("[В] - Выйти из режима боя\n")
+                console.print(Panel(actions_text, title="Выберите действие", border_style="blue"))
+
+                # Ожидаем ввода пользователя с обработкой ошибок
+                while True:
+                    try:
+                        if 'msvcrt' in sys.modules:  # Windows
+                            if msvcrt.kbhit():
+                                key = msvcrt.getch()
+                                try:
+                                    key = key.decode('cp866').lower()
+                                except UnicodeDecodeError:
+                                    continue
+
+                                if key in ('\r', 'б'):
+                                    return False  # Начать новый бой
+                                elif key == 'в':
+                                    return True  # Выйти из боя
+                        else:  # Unix
+                            import select
+                            if select.select([sys.stdin], [], [], 0)[0]:
+                                key = sys.stdin.readline().strip().lower()
+                                if key in ('', 'б'):
+                                    return False
+                                elif key == 'в':
+                                    return True
+                        time.sleep(0.1)
+                    except Exception as input_error:
+                        console.print(f"[yellow]Ошибка ввода: {str(input_error)}[/yellow]")
+                        time.sleep(0.5)
+                        continue
+
+            except Exception as battle_error:
+                console.print(f"[red]Критическая ошибка в бою: {str(battle_error)}[/red]")
+                import traceback
+                traceback.print_exc()
+                # Пытаемся восстановить игру
+                player.health_points = max(1, player.health_points)  # Гарантируем, что игрок не умрет от бага
+                time.sleep(3)
+                return True  # Выходим из боя при критической ошибке
+
+    finally:
+        try:
+            player.in_battle = False
+            enemy.in_battle = False
+        except Exception as attr_error:
+            console.print(f"[yellow]Ошибка сброса флага боя: {str(attr_error)}[/yellow]")
+            # Игнорируем, так как это не критично
 
 def process_mob_defeat(hero: Character, mob: Character, ui=None):
     """Обрабатывает победу над монстром: добавляет лут, опыт и деньги"""
@@ -1408,6 +1486,14 @@ def trade_with_merchant(hero, merchant):
                     last_message = "Неверный номер квеста!"
             except (ValueError, IndexError):
                 last_message = "Используйте: 'сдать [номер]'"
+
+        elif action.startswith(('услуга ', 'у ')):
+            try:
+                service_id = int(action.split()[1])
+                merchant.buy_service(hero, service_id)
+                input("\nНажмите Enter чтобы продолжить...")
+            except (ValueError, IndexError):
+                last_message = "Используйте: 'услуга [номер]'"
 
         elif action in ["квест", "кв"]:
             if pearl_quest_data:
@@ -1811,8 +1897,9 @@ def game() -> None:
 
     try:
         while hero_user.is_alive():
+            # Обновляем эффекты вне боя
+            hero_user.effect_manager.update_effects(hero_user)
             command = get_player_command(hero_user)
-
             # Бой
             if command in ["бой", "б"] and hero_user.location.zone_type == "combat":
                 fight_with_mob(action_manager=action_manager)
