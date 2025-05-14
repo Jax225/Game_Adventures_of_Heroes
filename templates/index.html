@@ -1,0 +1,49 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Game Console</title>
+    <style>
+        .output {
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="output" id="gameOutput"></div>
+    <form id="commandForm">
+        <input type="text" id="commandInput" placeholder="Введите команду" autocomplete="off">
+        <button type="submit">Отправить</button>
+    </form>
+
+    <script>
+        function fetchGameOutput() {
+            fetch('/game_output')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('gameOutput').innerText = data.game_output;
+                });
+        }
+
+        document.getElementById('commandForm').onsubmit = function(event) {
+            event.preventDefault();
+            const command = document.getElementById('commandInput').value;
+
+            fetch('/send_command', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ command: command })
+            }).then(() => {
+                document.getElementById('commandInput').value = '';  // очищаем поле ввода
+                fetchGameOutput();  // Обновляем вывод
+            });
+        };
+
+        setInterval(fetchGameOutput, 1000);  // Обновляем каждую секунду
+    </script>
+</body>
+</html>

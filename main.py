@@ -503,6 +503,7 @@ def get_exp_bar(current, max_exp, width=20):
             #f"{current}/{max_exp}"
             f"\n"
             f"[blue] {round(current / (max_exp) * 100, 2)} %[/blue]"
+            f"{current}/{max_exp}"
     )
     return exp_bar
 
@@ -1068,7 +1069,9 @@ item_database = [
 
 #Отдельные функции
 
-def spawn_mob(location: Location):
+def spawn_mob(hero: Character):
+    """Создает моба на основе локации героя"""
+    location = hero.location
     if location.name == "Храм":
         level = 1  # Константа! Монстры только первого уровня
         name = list_name_orcs[0]  # Имя орка из храма (Внизуда)
@@ -1193,8 +1196,6 @@ def fight_turn(player, enemy, ui=None, action_manager=None):
         player.attack(target=enemy)
         if not enemy.is_alive():
             enemy_killed = True
-            player.gain_experience(target=enemy)  # Добавляем опыт
-            #player.count_kill += 1  # Увеличиваем количество убитых монстров
     elif action_type == "escape":
         if try_escape(player, enemy):
             console.print("[green]Вам удалось сбежать![/green]")
@@ -1217,8 +1218,6 @@ def fight_turn(player, enemy, ui=None, action_manager=None):
         time.sleep(1)
         if not enemy.is_alive():
             enemy_killed = True
-            player.gain_experience(target=enemy)  # Добавляем опыт
-            #player.count_kill += 1  # Увеличиваем количество убитых монстров
     else:
         console.print("[red]Неизвестное действие![/red]")
         time.sleep(1)
@@ -1377,10 +1376,10 @@ def process_mob_defeat(hero: Character, mob: Character, ui=None):
         return False
 
 
-def fight_with_mob(ui=None, action_manager=None):
+def fight_with_mob(hero: Character, ui=None, action_manager=None):
     """Функция боя с мобом с поддержкой настраиваемой панели"""
     while True:
-        new_mob = spawn_mob(hero_user.location)
+        new_mob = spawn_mob(hero)
         if new_mob:
             if ui:
                 ui.add_message(f"\n[bright_red]Начинается бой с '{new_mob.name}', {new_mob.level} уровня[/bright_red]")
@@ -1390,7 +1389,7 @@ def fight_with_mob(ui=None, action_manager=None):
                 console.print(f"\n[bright_red]Начинается бой с '{new_mob.name}', {new_mob.level} уровня[/bright_red]")
                 console.print(f"[bright_red]Здоровье врага: {new_mob.health_points}[/bright_red]")
 
-            should_exit = fight(player=hero_user, enemy=new_mob, ui=ui, action_manager=action_manager)
+            should_exit = fight(player=hero, enemy=new_mob, ui=ui, action_manager=action_manager)
             if should_exit:
                 break
         else:
@@ -1511,12 +1510,12 @@ def trade_with_merchant(hero, merchant):
             last_message = "Неверная команда!"
 
 #Функция перемещения персонажа
-def move_character(ui=None):
+def move_character(hero: Character, ui=None):
     """Функция перемещения персонажа с поддержкой нового интерфейса"""
     if ui:
         ui.add_message("Выберите локацию для перемещения:")
         for index, loc in enumerate(location_database):
-            if loc.name != "Город" and hero_user.location.name != "Город":
+            if loc.name != "Город" and hero.location.name != "Город":
                 continue
             ui.add_message(f"{index + 1}. {loc.name} - {loc.description}")
         ui.update_ui()
@@ -1525,7 +1524,7 @@ def move_character(ui=None):
     else:
         console.print("Выберите локацию для перемещения:")
         for index, loc in enumerate(location_database):
-            if loc.name != "Город" and hero_user.location.name != "Город":
+            if loc.name != "Город" and hero.location.name != "Город":
                 continue
             console.print(f"{index + 1}. {loc.name} - {loc.description}")
 
@@ -1535,11 +1534,11 @@ def move_character(ui=None):
         choice_index = int(choice) - 1
         if 0 <= choice_index < len(location_database):
             selected_location = location_database[choice_index]
-            hero_user.move_to_location(selected_location)
+            hero.move_to_location(selected_location)
             if ui:
-                ui.add_message(f"[green]Вы переместились в '{hero_user.location.name}'![/green]")
+                ui.add_message(f"[green]Вы переместились в '{hero.location.name}'![/green]")
             else:
-                console.print(f"[green]Вы переместились в '{hero_user.location.name}'![/green]")
+                console.print(f"[green]Вы переместились в '{hero.location.name}'![/green]")
         else:
             if ui:
                 ui.add_message("[red]Ошибка: Неверный номер локации.[/red]")
@@ -1636,7 +1635,7 @@ def convert_old_save(old_save: dict) -> dict:
     return new_save
 
 
-def save_in_file():
+def save_in_file(hero_user):
     """Сохраняет игру с красивым уведомлением"""
     try:
         if not os.path.isdir("save"):
@@ -1892,7 +1891,7 @@ def delete_all_saves():
         console.print("[yellow3]Удаление всех сохранений отменено.[/yellow3]")
 
 #Здесь функция игры
-def game() -> None:
+def game(hero_user) -> None:
     global action_manager  # Используем глобальный менеджер действий
 
     try:
@@ -1902,7 +1901,7 @@ def game() -> None:
             command = get_player_command(hero_user)
             # Бой
             if command in ["бой", "б"] and hero_user.location.zone_type == "combat":
-                fight_with_mob(action_manager=action_manager)
+                fight_with_mob(hero_user, action_manager=action_manager)
 
             # Квесты
             elif command in ["квесты", "кв"]:
@@ -1916,11 +1915,11 @@ def game() -> None:
 
             # Перемещение
             elif command in ["перемещение", "п"]:
-                move_character()
+                move_character(hero_user)
 
             # Сохранение игры
             elif command in ["сохранить", "с"]:
-                save_in_file()
+                save_in_file(hero_user)
 
             # Настройка панели действий
             elif command in ["настройка панели", "нп", "н"]:
@@ -1972,33 +1971,38 @@ def game() -> None:
 
 #Здесь конец функции игры
 
-# Основной блок игры
-console.print(f"Добро пожаловать в игру\n\n[red]--- Adventures of Heroes ---\n[/red]")
+def main():
+    """Основная функция игры, которую можно импортировать и вызывать из других модулей"""
+    # Основной блок игры
+    while True:
+        console.print(f"Добро пожаловать в игру\n\n[red]--- Adventures of Heroes ---\n[/red]")
+        menu_command = get_main_menu_command()
 
-while True:
-    menu_command = get_main_menu_command()
+        # В основном игровом цикле:
+        if menu_command == "start":
+            hero_user = character_creation_flow()
+            if hero_user:  # Проверяем, что герой был создан
+                game(hero_user)  # Запускаем игру с созданным персонажем
 
-    # В основном игровом цикле:
-    if menu_command == "start":
-        hero_user = character_creation_flow()
-        game()  # Запускаем игру с созданным персонажем
+        elif menu_command == "load":
+            # Код загрузки игры
+            hero_user = download(database=item_database)
+            if hero_user:
+                hero_user.class_character = hero_user.get_class_hero()
+                console.print(f"[yellow3]--------------------------------------------------\n"
+                              f"Успешно загружено\n"
+                              f"--------------------------------------------------[/yellow3]\n")
+                game(hero_user)
 
-    elif menu_command == "load":
-        # Код загрузки игры
-        hero_user = download(database=item_database)
-        if hero_user:
-            hero_user.class_character = hero_user.get_class_hero()
-            console.print(f"[yellow3]--------------------------------------------------\n"
-                          f"Успешно загружено\n"
-                          f"--------------------------------------------------[/yellow3]\n")
-            game()
-        #except Exception as e:  # Ловим все исключения
-        #    console.print(f"[red]-----------   КАКАЯ-ТО ОШИБКА   ------------------\n""--------------------------------------------------\n""Откройте папку с игрой.\n""Рядом с файлом 'adventures_of_heroes._._.exe'\n""должна быть папка 'save'\n""В папке 'save' должен быть файл 'save.json' \n""Или файл с сохранением был испорчен\n"f"Ошибка: {str(e)}\n""--------------------------------------------------[/red]") # Выводим текст ошибки для отладки
+        elif menu_command == "delete":
+            prompt_for_save_deletion()
+        elif menu_command == "delete_all":
+            delete_all_saves()
+        elif menu_command == "exit":
+            console.print(f"[bright_cyan]-----------------\n---Конец игры----\n-----------------[/bright_cyan]")
+            break
 
-    elif menu_command == "delete":
-        prompt_for_save_deletion()
-    elif menu_command == "delete_all":
-        delete_all_saves()
-    elif menu_command == "exit":
-        console.print(f"[bright_cyan]-----------------\n---Конец игры----\n-----------------[/bright_cyan]")
-        break
+# Этот блок позволяет запускать игру напрямую из файла main.py,
+# но не будет выполняться при импорте из другого модуля
+if __name__ == "__main__":
+    main()
